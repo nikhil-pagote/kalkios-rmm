@@ -76,13 +76,13 @@ const ENTRY_FLAGS_MASK: usize = !ENTRY_ADDRESS_MASK;
 static mut MACHINE: Option<Machine> = None;
 
 #[inline(always)]
-pub unsafe fn machine_read_u8(address: usize) -> u8 {
-    MACHINE.as_ref().unwrap().read_u8(address)
+pub unsafe fn machine_read<T>(address: usize) -> T {
+    MACHINE.as_ref().unwrap().read(address)
 }
 
 #[inline(always)]
-pub unsafe fn machine_write_u8(address: usize, value: u8) {
-    MACHINE.as_mut().unwrap().write_u8(address, value)
+pub unsafe fn machine_write<T>(address: usize, value: T) {
+    MACHINE.as_mut().unwrap().write(address, value)
 }
 
 #[inline(always)]
@@ -115,23 +115,25 @@ impl Machine {
         }
     }
 
-    pub fn read_phys_usize(&self, phys: usize) -> usize {
-        if phys + mem::size_of::<usize>() <= self.memory.len() {
+    pub fn read_phys<T>(&self, phys: usize) -> T {
+        let size = mem::size_of::<T>();
+        if phys + size <= self.memory.len() {
             unsafe {
-                ptr::read(self.memory.as_ptr().add(phys) as *const usize)
+                ptr::read(self.memory.as_ptr().add(phys) as *const T)
             }
         } else {
-            panic!("read_phys_usize {:X} outside of memory", phys);
+            panic!("read_phys: 0x{:X} size 0x{:X} outside of memory", phys, size);
         }
     }
 
-    pub fn write_phys_usize(&mut self, phys: usize, value: usize) {
-        if phys + mem::size_of::<usize>() <= self.memory.len() {
+    pub fn write_phys<T>(&mut self, phys: usize, value: T) {
+        let size = mem::size_of::<T>();
+        if phys + size <= self.memory.len() {
             unsafe {
-                ptr::write(self.memory.as_mut_ptr().add(phys) as *mut usize, value);
+                ptr::write(self.memory.as_mut_ptr().add(phys) as *mut T, value);
             }
         } else {
-            panic!("write_phys_usize {:X} outside of memory", phys);
+            panic!("write_phys: 0x{:X} size 0x{:X} outside of memory", phys, size);
         }
     }
 
@@ -145,23 +147,35 @@ impl Machine {
         ))
     }
 
-    pub fn read_u8(&self, virt: usize) -> u8 {
+    pub fn read<T>(&self, virt: usize) -> T {
+        //TODO: allow reading past page boundaries
+        let size = mem::size_of::<T>();
+        if (virt & PAGE_ADDRESS_MASK) != ((virt + size) & PAGE_ADDRESS_MASK) {
+            panic!("read: 0x{:X} size 0x{:X} passes page boundary", virt, size);
+        }
+
         if let Some((phys, _flags)) = self.translate(virt) {
-            self.memory[phys]
+            self.read_phys(phys)
         } else {
-            panic!("read_u8: {:X} not present", virt);
+            panic!("read: 0x{:X} size 0x{:X} not present", virt, size);
         }
     }
 
-    pub fn write_u8(&mut self, virt: usize, value: u8) {
+    pub fn write<T>(&mut self, virt: usize, value: T) {
+        //TODO: allow writing past page boundaries
+        let size = mem::size_of::<T>();
+        if (virt & PAGE_ADDRESS_MASK) != ((virt + size) & PAGE_ADDRESS_MASK) {
+            panic!("write: 0x{:X} size 0x{:X} passes page boundary", virt, size);
+        }
+
         if let Some((phys, flags)) = self.translate(virt) {
             if flags & ENTRY_WRITABLE != 0 {
-                self.memory[phys] = value;
+                self.write_phys(phys, value);
             } else {
-                panic!("write_u8: {:X} not writable", virt);
+                panic!("write: 0x{:X} size 0x{:X} not writable", virt, size);
             }
         } else {
-            panic!("write_u8: {:X} not present", virt);
+            panic!("write: 0x{:X} size 0x{:X} not present", virt, size);
         }
     }
 
@@ -175,28 +189,28 @@ impl Machine {
         // PML4
         let a4 = self.table_addr;
         for i4 in 0..PAGE_ENTRIES {
-            let e3 = self.read_phys_usize(a4 + i4 * PAGE_ENTRY_SIZE);
+            let e3 = self.read_phys::<usize>(a4 + i4 * PAGE_ENTRY_SIZE);
             let f3 = e3 & ENTRY_FLAGS_MASK;
             if f3 & ENTRY_PRESENT == 0 { continue; }
 
             // Page directory pointer
             let a3 = e3 & ENTRY_ADDRESS_MASK;
             for i3 in 0..PAGE_ENTRIES {
-                let e2 = self.read_phys_usize(a3 + i3 * PAGE_ENTRY_SIZE);
+                let e2 = self.read_phys::<usize>(a3 + i3 * PAGE_ENTRY_SIZE);
                 let f2 = e2 & ENTRY_FLAGS_MASK;
                 if f2 & ENTRY_PRESENT == 0 { continue; }
 
                 // Page directory
                 let a2 = e2 & ENTRY_ADDRESS_MASK;
                 for i2 in 0..PAGE_ENTRIES {
-                    let e1 = self.read_phys_usize(a2 + i2 * PAGE_ENTRY_SIZE);
+                    let e1 = self.read_phys::<usize>(a2 + i2 * PAGE_ENTRY_SIZE);
                     let f1 = e1 & ENTRY_FLAGS_MASK;
                     if f1 & ENTRY_PRESENT == 0 { continue; }
 
                     // Page table
                     let a1 = e1 & ENTRY_ADDRESS_MASK;
                     for i1 in 0..PAGE_ENTRIES {
-                        let e = self.read_phys_usize(a1 + i1 * PAGE_ENTRY_SIZE);
+                        let e = self.read_phys::<usize>(a1 + i1 * PAGE_ENTRY_SIZE);
                         let f = e & ENTRY_FLAGS_MASK;
                         if f & ENTRY_PRESENT == 0 { continue; }
 
@@ -207,7 +221,7 @@ impl Machine {
                             (i3 << 30) |
                             (i2 << 21) |
                             (i1 << 12);
-                        println!("map {:X} to {:X}, {:X}", page, a, f);
+                        println!("map 0x{:X} to 0x{:X}, 0x{:X}", page, a, f);
                         self.map.insert(page, e);
                     }
                 }
@@ -235,15 +249,15 @@ fn main() {
             // PML4 link to PDP
             let pml4 = 0;
             let pdp = pml4 + PAGE_SIZE;
-            machine.write_phys_usize(pml4, pdp | ENTRY_PRESENT);
+            machine.write_phys::<usize>(pml4, pdp | ENTRY_PRESENT);
 
             // PDP link to PD
             let pd = pdp + PAGE_SIZE;
-            machine.write_phys_usize(pdp, pd | ENTRY_PRESENT);
+            machine.write_phys::<usize>(pdp, pd | ENTRY_PRESENT);
 
             // PD link to PT
             let pt = pd + PAGE_SIZE;
-            machine.write_phys_usize(pd, pt | ENTRY_PRESENT);
+            machine.write_phys::<usize>(pd, pt | ENTRY_PRESENT);
 
             // PT links to frames
             for i in 0..PAGE_ENTRIES {
@@ -253,7 +267,7 @@ fn main() {
                 } else {
                     ENTRY_PRESENT
                 };
-                machine.write_phys_usize(pt + i * PAGE_ENTRY_SIZE, page | flags);
+                machine.write_phys::<usize>(pt + i * PAGE_ENTRY_SIZE, page | flags);
             }
 
             MACHINE = Some(machine);
@@ -263,12 +277,12 @@ fn main() {
         }
 
         // Test read
-        println!("{:X} = {:X}", megabyte, machine_read_u8(megabyte));
+        println!("0x{:X} = 0x{:X}", megabyte, machine_read::<u8>(megabyte));
 
         // Test write
-        machine_write_u8(megabyte, 0x5A);
+        machine_write::<u8>(megabyte, 0x5A);
 
         // Test read
-        println!("{:X} = {:X}", megabyte, machine_read_u8(megabyte));
+        println!("0x{:X} = 0x{:X}", megabyte, machine_read::<u8>(megabyte));
     }
 }
