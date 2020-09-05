@@ -13,6 +13,7 @@ pub const PAGE_ENTRY_SIZE: usize = mem::size_of::<usize>();
 pub const PAGE_ENTRIES: usize = PAGE_SIZE / PAGE_ENTRY_SIZE;
 
 // Physical memory address
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct PhysicalAddress(usize);
 
@@ -27,6 +28,7 @@ impl PhysicalAddress {
 }
 
 // Physical memory frame
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct Frame(PhysicalAddress);
 
@@ -41,6 +43,7 @@ impl Frame {
 }
 
 // Virtual memory address
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct VirtualAddress(usize);
 
@@ -55,6 +58,7 @@ impl VirtualAddress {
 }
 
 // Virtual memory page
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct Page(VirtualAddress);
 
@@ -244,6 +248,7 @@ impl Machine {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct PageEntry(usize);
 
@@ -276,6 +281,14 @@ impl PageTable {
         )
     }
 
+    pub fn base(&self) -> VirtualAddress {
+        self.base
+    }
+
+    pub fn phys(&self) -> PhysicalAddress {
+        self.phys
+    }
+
     pub fn level(&self) -> usize {
         self.level
     }
@@ -288,7 +301,7 @@ impl PageTable {
     pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {
         if i < PAGE_ENTRIES {
             Some(VirtualAddress(
-                self.base.0 + i << (9 * self.level + PAGE_SHIFT)
+                self.base.0 + (i << (self.level * 9 + PAGE_SHIFT))
             ))
         } else {
             None
@@ -368,20 +381,20 @@ fn main() {
             // PML4 link to PDP
             let pml4 = 0;
             let pdp = pml4 + PAGE_SIZE;
-            machine.write_phys::<usize>(pml4, pdp | ENTRY_PRESENT);
+            let flags = ENTRY_WRITABLE | ENTRY_PRESENT;
+            machine.write_phys::<usize>(pml4, pdp | flags);
 
             // PDP link to PD
             let pd = pdp + PAGE_SIZE;
-            machine.write_phys::<usize>(pdp, pd | ENTRY_PRESENT);
+            machine.write_phys::<usize>(pdp, pd | flags);
 
             // PD link to PT
             let pt = pd + PAGE_SIZE;
-            machine.write_phys::<usize>(pd, pt | ENTRY_PRESENT);
+            machine.write_phys::<usize>(pd, pt | flags);
 
             // PT links to frames
             for i in 0..PAGE_ENTRIES {
                 let page = i * PAGE_SIZE;
-                let flags = ENTRY_WRITABLE | ENTRY_PRESENT;
                 machine.write_phys::<usize>(pt + i * PAGE_ENTRY_SIZE, page | flags);
             }
 
@@ -402,6 +415,16 @@ fn main() {
 
         // Test read
         println!("0x{:X} = 0x{:X}", megabyte, arch_read::<u8>(megabyte));
+
+        // Set recursive mapping
+        {
+            let mut top = PageTable::top();
+            top.set_entry(PAGE_ENTRIES - 1, PageEntry(top.phys().0 | ENTRY_WRITABLE | ENTRY_PRESENT));
+            arch_invalidate_all();
+        }
+
+        // Debug table
+        dump_tables(PageTable::top());
 
         // Initialize memory allocator
         let areas = [MemoryArea {
