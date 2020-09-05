@@ -76,27 +76,32 @@ const ENTRY_FLAGS_MASK: usize = !ENTRY_ADDRESS_MASK;
 static mut MACHINE: Option<Machine> = None;
 
 #[inline(always)]
-pub unsafe fn machine_read<T>(address: usize) -> T {
+pub unsafe fn arch_read<T>(address: usize) -> T {
     MACHINE.as_ref().unwrap().read(address)
 }
 
 #[inline(always)]
-pub unsafe fn machine_write<T>(address: usize, value: T) {
+pub unsafe fn arch_write<T>(address: usize, value: T) {
     MACHINE.as_mut().unwrap().write(address, value)
 }
 
 #[inline(always)]
-pub unsafe fn machine_invalidate(address: usize) {
+pub unsafe fn arch_invalidate(address: usize) {
     MACHINE.as_mut().unwrap().invalidate(address);
 }
 
 #[inline(always)]
-pub unsafe fn machine_invalidate_all() {
+pub unsafe fn arch_invalidate_all() {
     MACHINE.as_mut().unwrap().invalidate_all();
 }
 
 #[inline(always)]
-pub unsafe fn machine_set_table(address: usize) {
+pub unsafe fn arch_get_table() -> usize {
+    MACHINE.as_mut().unwrap().get_table()
+}
+
+#[inline(always)]
+pub unsafe fn arch_set_table(address: usize) {
     MACHINE.as_mut().unwrap().set_table(address);
 }
 
@@ -150,7 +155,7 @@ impl Machine {
     pub fn read<T>(&self, virt: usize) -> T {
         //TODO: allow reading past page boundaries
         let size = mem::size_of::<T>();
-        if (virt & PAGE_ADDRESS_MASK) != ((virt + size) & PAGE_ADDRESS_MASK) {
+        if (virt & PAGE_ADDRESS_MASK) != ((virt + size - 1) & PAGE_ADDRESS_MASK) {
             panic!("read: 0x{:X} size 0x{:X} passes page boundary", virt, size);
         }
 
@@ -164,7 +169,7 @@ impl Machine {
     pub fn write<T>(&mut self, virt: usize, value: T) {
         //TODO: allow writing past page boundaries
         let size = mem::size_of::<T>();
-        if (virt & PAGE_ADDRESS_MASK) != ((virt + size) & PAGE_ADDRESS_MASK) {
+        if (virt & PAGE_ADDRESS_MASK) != ((virt + size - 1) & PAGE_ADDRESS_MASK) {
             panic!("write: 0x{:X} size 0x{:X} passes page boundary", virt, size);
         }
 
@@ -229,10 +234,124 @@ impl Machine {
         }
     }
 
+    pub fn get_table(&self) -> usize {
+        self.table_addr
+    }
+
     pub fn set_table(&mut self, address: usize) {
         self.table_addr = address;
         self.invalidate_all();
     }
+}
+
+#[repr(transparent)]
+pub struct PageEntry(usize);
+
+impl PageEntry {
+    pub fn address(&self) -> PhysicalAddress {
+        PhysicalAddress(self.0 & ENTRY_ADDRESS_MASK)
+    }
+
+    pub fn present(&self) -> bool {
+        self.0 & ENTRY_PRESENT != 0
+    }
+}
+
+pub struct PageTable {
+    base: VirtualAddress,
+    phys: PhysicalAddress,
+    level: usize
+}
+
+impl PageTable {
+    pub unsafe fn new(base: VirtualAddress, phys: PhysicalAddress, level: usize) -> Self {
+        Self { base, phys, level }
+    }
+
+    pub unsafe fn top() -> Self {
+        Self::new(
+            VirtualAddress::new(0),
+            PhysicalAddress::new(arch_get_table()),
+            3
+        )
+    }
+
+    pub fn level(&self) -> usize {
+        self.level
+    }
+
+    pub unsafe fn virt(&self) -> VirtualAddress {
+        //TODO: something other than identity mapping
+        VirtualAddress(self.phys.0)
+    }
+
+    pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {
+        if i < PAGE_ENTRIES {
+            Some(VirtualAddress(
+                self.base.0 + i << (9 * self.level + PAGE_SHIFT)
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn entry_virt(&self, i: usize) -> Option<VirtualAddress> {
+        if i < PAGE_ENTRIES {
+            Some(VirtualAddress(
+                self.virt().0 + i * PAGE_ENTRY_SIZE
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn entry(&self, i: usize) -> Option<PageEntry> {
+        let addr = self.entry_virt(i)?;
+        Some(PageEntry(arch_read::<usize>(addr.0)))
+    }
+
+    pub unsafe fn set_entry(&mut self, i: usize, entry: PageEntry) -> Option<()> {
+        let addr = self.entry_virt(i)?;
+        arch_write::<usize>(addr.0, entry.0);
+        Some(())
+    }
+
+    pub unsafe fn next(&self, i: usize) -> Option<Self> {
+        if self.level > 0 {
+            let entry = self.entry(i)?;
+            if entry.present() {
+                return Some(PageTable::new(
+                    self.entry_base(i)?,
+                    entry.address(),
+                    self.level - 1
+                ));
+            }
+        }
+        None
+    }
+}
+
+unsafe fn dump_tables(table: PageTable) {
+    let level = table.level();
+    for i in 0..PAGE_ENTRIES {
+        if level == 0 {
+            if let Some(entry) = table.entry(i) {
+                if entry.present() {
+                    let base = table.entry_base(i).unwrap();
+                    println!("0x{:X}: 0x{:X}", base.0, entry.address().0);
+                }
+            }
+        } else {
+            if let Some(next) = table.next(i) {
+                dump_tables(next);
+            }
+        }
+    }
+}
+
+pub struct MemoryArea {
+    base: PhysicalAddress,
+    size: usize,
 }
 
 fn main() {
@@ -262,27 +381,32 @@ fn main() {
             // PT links to frames
             for i in 0..PAGE_ENTRIES {
                 let page = i * PAGE_SIZE;
-                let flags = if page >= megabyte {
-                    ENTRY_WRITABLE | ENTRY_PRESENT
-                } else {
-                    ENTRY_PRESENT
-                };
+                let flags = ENTRY_WRITABLE | ENTRY_PRESENT;
                 machine.write_phys::<usize>(pt + i * PAGE_ENTRY_SIZE, page | flags);
             }
 
             MACHINE = Some(machine);
 
             // Set table to pml4
-            machine_set_table(pml4);
+            arch_set_table(pml4);
         }
 
+        // Debug table
+        dump_tables(PageTable::top());
+
         // Test read
-        println!("0x{:X} = 0x{:X}", megabyte, machine_read::<u8>(megabyte));
+        println!("0x{:X} = 0x{:X}", megabyte, arch_read::<u8>(megabyte));
 
         // Test write
-        machine_write::<u8>(megabyte, 0x5A);
+        arch_write::<u8>(megabyte, 0x5A);
 
         // Test read
-        println!("0x{:X} = 0x{:X}", megabyte, machine_read::<u8>(megabyte));
+        println!("0x{:X} = 0x{:X}", megabyte, arch_read::<u8>(megabyte));
+
+        // Initialize memory allocator
+        let areas = [MemoryArea {
+            base: PhysicalAddress::new(megabyte),
+            size: megabyte,
+        }];
     }
 }
