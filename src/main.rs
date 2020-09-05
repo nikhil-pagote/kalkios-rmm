@@ -11,6 +11,7 @@ pub const PAGE_OFFSET_MASK: usize = PAGE_SIZE - 1;
 pub const PAGE_ADDRESS_MASK: usize = !PAGE_OFFSET_MASK;
 pub const PAGE_ENTRY_SIZE: usize = mem::size_of::<usize>();
 pub const PAGE_ENTRIES: usize = PAGE_SIZE / PAGE_ENTRY_SIZE;
+pub const PAGE_LEVELS: usize = 4;
 
 // Physical memory address
 #[derive(Clone, Copy, Debug)]
@@ -277,7 +278,7 @@ impl PageTable {
         Self::new(
             VirtualAddress::new(0),
             PhysicalAddress::new(arch_get_table()),
-            3
+            PAGE_LEVELS - 1
         )
     }
 
@@ -294,7 +295,9 @@ impl PageTable {
     }
 
     pub unsafe fn virt(&self) -> VirtualAddress {
-        //TODO: something other than identity mapping
+        //TODO: Recursive mapping
+
+        // Identity mapping
         VirtualAddress(self.phys.0)
     }
 
@@ -384,6 +387,9 @@ fn main() {
             let flags = ENTRY_WRITABLE | ENTRY_PRESENT;
             machine.write_phys::<usize>(pml4, pdp | flags);
 
+            // Recursive mapping
+            machine.write_phys::<usize>(pml4 + (PAGE_ENTRIES - 1) * PAGE_ENTRY_SIZE, pml4 | flags);
+
             // PDP link to PD
             let pd = pdp + PAGE_SIZE;
             machine.write_phys::<usize>(pdp, pd | flags);
@@ -415,16 +421,6 @@ fn main() {
 
         // Test read
         println!("0x{:X} = 0x{:X}", megabyte, arch_read::<u8>(megabyte));
-
-        // Set recursive mapping
-        {
-            let mut top = PageTable::top();
-            top.set_entry(PAGE_ENTRIES - 1, PageEntry(top.phys().0 | ENTRY_WRITABLE | ENTRY_PRESENT));
-            arch_invalidate_all();
-        }
-
-        // Debug table
-        dump_tables(PageTable::top());
 
         // Initialize memory allocator
         let areas = [MemoryArea {
