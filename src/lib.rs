@@ -11,7 +11,7 @@ mod arch;
 mod page;
 
 // Physical memory address
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct PhysicalAddress(usize);
 
@@ -20,13 +20,13 @@ impl PhysicalAddress {
         Self(address)
     }
 
-    pub unsafe fn data(&self) -> usize {
+    pub fn data(&self) -> usize {
         self.0
     }
 }
 
 // Virtual memory address
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct VirtualAddress(usize);
 
@@ -35,7 +35,7 @@ impl VirtualAddress {
         Self(address)
     }
 
-    pub unsafe fn data(&self) -> usize {
+    pub fn data(&self) -> usize {
         self.0
     }
 }

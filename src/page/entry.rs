@@ -12,7 +12,7 @@ pub struct PageEntry<A> {
 }
 
 impl<A: Arch> PageEntry<A> {
-    pub unsafe fn new(data: usize) -> Self {
+    pub fn new(data: usize) -> Self {
         Self { data, phantom: PhantomData }
     }
 
@@ -22,6 +22,10 @@ impl<A: Arch> PageEntry<A> {
 
     pub fn address(&self) -> PhysicalAddress {
         PhysicalAddress(self.data & A::ENTRY_ADDRESS_MASK)
+    }
+
+    pub fn flags(&self) -> usize {
+        self.data & A::ENTRY_FLAGS_MASK
     }
 
     pub fn present(&self) -> bool {
