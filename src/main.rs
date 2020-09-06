@@ -11,6 +11,8 @@ pub const PAGE_OFFSET_MASK: usize = PAGE_SIZE - 1;
 pub const PAGE_ADDRESS_MASK: usize = !PAGE_OFFSET_MASK;
 pub const PAGE_ENTRY_SIZE: usize = mem::size_of::<usize>();
 pub const PAGE_ENTRIES: usize = PAGE_SIZE / PAGE_ENTRY_SIZE;
+pub const PAGE_ENTRY_SHIFT: usize = 9;
+pub const PAGE_ENTRY_MASK: usize = (1 << PAGE_ENTRY_SHIFT) - 1;
 pub const PAGE_LEVELS: usize = 4;
 
 // Physical memory address
@@ -160,7 +162,7 @@ impl Machine {
     pub fn read<T>(&self, virt: usize) -> T {
         //TODO: allow reading past page boundaries
         let size = mem::size_of::<T>();
-        if (virt & PAGE_ADDRESS_MASK) != ((virt + size - 1) & PAGE_ADDRESS_MASK) {
+        if (virt & PAGE_ADDRESS_MASK) != ((virt + (size - 1)) & PAGE_ADDRESS_MASK) {
             panic!("read: 0x{:X} size 0x{:X} passes page boundary", virt, size);
         }
 
@@ -174,7 +176,7 @@ impl Machine {
     pub fn write<T>(&mut self, virt: usize, value: T) {
         //TODO: allow writing past page boundaries
         let size = mem::size_of::<T>();
-        if (virt & PAGE_ADDRESS_MASK) != ((virt + size - 1) & PAGE_ADDRESS_MASK) {
+        if (virt & PAGE_ADDRESS_MASK) != ((virt + (size - 1)) & PAGE_ADDRESS_MASK) {
             panic!("write: 0x{:X} size 0x{:X} passes page boundary", virt, size);
         }
 
@@ -227,6 +229,7 @@ impl Machine {
                         // Page
                         let a = e & ENTRY_ADDRESS_MASK;
                         let page =
+                            if i4 >= 256 { 0xFFFF_0000_0000_0000 } else { 0 } |
                             (i4 << 39) |
                             (i3 << 30) |
                             (i2 << 21) |
@@ -295,16 +298,23 @@ impl PageTable {
     }
 
     pub unsafe fn virt(&self) -> VirtualAddress {
-        //TODO: Recursive mapping
+        // Recursive mapping
+        let mut addr = 0xFFFF_FFFF_FFFF_F000;
+        for level in (self.level + 1 .. PAGE_LEVELS).rev() {
+            let index = (self.base.0 >> (level * PAGE_ENTRY_SHIFT + PAGE_SHIFT)) & PAGE_ENTRY_MASK;
+            addr <<= PAGE_ENTRY_SHIFT;
+            addr |= index << PAGE_SHIFT;
+        }
+        VirtualAddress(addr)
 
         // Identity mapping
-        VirtualAddress(self.phys.0)
+        //VirtualAddress(self.phys.0)
     }
 
     pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {
         if i < PAGE_ENTRIES {
             Some(VirtualAddress(
-                self.base.0 + (i << (self.level * 9 + PAGE_SHIFT))
+                self.base.0 + (i << (self.level * PAGE_ENTRY_SHIFT + PAGE_SHIFT))
             ))
         } else {
             None
