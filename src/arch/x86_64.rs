@@ -10,6 +10,7 @@ impl Arch for X8664Arch {
     const PAGE_ENTRY_SHIFT: usize = 9; // 512 entries, 8 bytes each
     const PAGE_LEVELS: usize = 4; // PML4, PDP, PD, PT
 
+    const ENTRY_ADDRESS_SHIFT: usize = 52;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
     const ENTRY_FLAG_WRITABLE: usize = 1 << 1;
     const ENTRY_FLAG_USER: usize = 1 << 2;
@@ -62,7 +63,8 @@ mod tests {
         assert_eq!(X8664Arch::PAGE_ENTRIES, 512);
         assert_eq!(X8664Arch::PAGE_ENTRY_MASK, 0x1FF);
 
-        assert_eq!(X8664Arch::ENTRY_ADDRESS_MASK, 0x0000_FFFF_FFFF_F000);
-        assert_eq!(X8664Arch::ENTRY_FLAGS_MASK, 0xFFFF_0000_0000_0FFF);
+        assert_eq!(X8664Arch::ENTRY_ADDRESS_SIZE, 0x0010_0000_0000_0000);
+        assert_eq!(X8664Arch::ENTRY_ADDRESS_MASK, 0x000F_FFFF_FFFF_F000);
+        assert_eq!(X8664Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
     }
 }
