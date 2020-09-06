@@ -22,7 +22,7 @@ impl<A: Arch> PageTable<A> {
     pub unsafe fn top() -> Self {
         Self::new(
             VirtualAddress::new(0),
-            PhysicalAddress::new(A::table()),
+            A::table(),
             A::PAGE_LEVELS - 1
         )
     }
@@ -47,7 +47,7 @@ impl<A: Arch> PageTable<A> {
             addr <<= A::PAGE_ENTRY_SHIFT;
             addr |= index << A::PAGE_SHIFT;
         }
-        VirtualAddress(addr)
+        VirtualAddress::new(addr)
 
         // Identity mapping
         //VirtualAddress(self.phys.0)
@@ -55,8 +55,8 @@ impl<A: Arch> PageTable<A> {
 
     pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {
         if i < A::PAGE_ENTRIES {
-            Some(VirtualAddress(
-                self.base.0 + (i << (self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT))
+            Some(VirtualAddress::new(
+                self.base.data() + (i << (self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT))
             ))
         } else {
             None
@@ -65,8 +65,8 @@ impl<A: Arch> PageTable<A> {
 
     pub unsafe fn entry_virt(&self, i: usize) -> Option<VirtualAddress> {
         if i < A::PAGE_ENTRIES {
-            Some(VirtualAddress(
-                self.virt().0 + i * A::PAGE_ENTRY_SIZE
+            Some(VirtualAddress::new(
+                self.virt().data() + i * A::PAGE_ENTRY_SIZE
             ))
         } else {
             None
@@ -75,12 +75,12 @@ impl<A: Arch> PageTable<A> {
 
     pub unsafe fn entry(&self, i: usize) -> Option<PageEntry<A>> {
         let addr = self.entry_virt(i)?;
-        Some(PageEntry::new(A::read::<usize>(addr.0)))
+        Some(PageEntry::new(A::read::<usize>(addr)))
     }
 
     pub unsafe fn set_entry(&mut self, i: usize, entry: PageEntry<A>) -> Option<()> {
         let addr = self.entry_virt(i)?;
-        A::write::<usize>(addr.0, entry.data());
+        A::write::<usize>(addr, entry.data());
         Some(())
     }
 

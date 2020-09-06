@@ -7,8 +7,10 @@ use std::collections::BTreeMap;
 
 use crate::{
     Arch,
-    PhysicalAddress,
     MemoryArea,
+    PageEntry,
+    PhysicalAddress,
+    VirtualAddress,
     arch::x86_64::X8664Arch,
 };
 
@@ -37,45 +39,45 @@ impl Arch for EmulateArch {
         let pml4 = 0;
         let pdp = pml4 + Self::PAGE_SIZE;
         let flags = Self::ENTRY_FLAG_WRITABLE | Self::ENTRY_FLAG_PRESENT;
-        machine.write_phys::<usize>(pml4, pdp | flags);
+        machine.write_phys::<usize>(PhysicalAddress::new(pml4), pdp | flags);
 
         // Recursive mapping
-        machine.write_phys::<usize>(pml4 + (Self::PAGE_ENTRIES - 1) * Self::PAGE_ENTRY_SIZE, pml4 | flags);
+        machine.write_phys::<usize>(PhysicalAddress::new(pml4 + (Self::PAGE_ENTRIES - 1) * Self::PAGE_ENTRY_SIZE), pml4 | flags);
 
         // PDP link to PD
         let pd = pdp + Self::PAGE_SIZE;
-        machine.write_phys::<usize>(pdp, pd | flags);
+        machine.write_phys::<usize>(PhysicalAddress::new(pdp), pd | flags);
 
         // PD link to PT
         let pt = pd + Self::PAGE_SIZE;
-        machine.write_phys::<usize>(pd, pt | flags);
+        machine.write_phys::<usize>(PhysicalAddress::new(pd), pt | flags);
 
         // PT links to frames
         for i in 0..Self::PAGE_ENTRIES {
             let page = i * Self::PAGE_SIZE;
-            machine.write_phys::<usize>(pt + i * Self::PAGE_ENTRY_SIZE, page | flags);
+            machine.write_phys::<usize>(PhysicalAddress::new(pt + i * Self::PAGE_ENTRY_SIZE), page | flags);
         }
 
         MACHINE = Some(machine);
 
         // Set table to pml4
-        EmulateArch::set_table(pml4);
+        EmulateArch::set_table(PhysicalAddress::new(pml4));
 
         &MEMORY_AREAS
     }
 
     #[inline(always)]
-    unsafe fn read<T>(address: usize) -> T {
+    unsafe fn read<T>(address: VirtualAddress) -> T {
         MACHINE.as_ref().unwrap().read(address)
     }
 
     #[inline(always)]
-    unsafe fn write<T>(address: usize, value: T) {
+    unsafe fn write<T>(address: VirtualAddress, value: T) {
         MACHINE.as_mut().unwrap().write(address, value)
     }
 
     #[inline(always)]
-    unsafe fn invalidate(address: usize) {
+    unsafe fn invalidate(address: VirtualAddress) {
         MACHINE.as_mut().unwrap().invalidate(address);
     }
 
@@ -85,12 +87,12 @@ impl Arch for EmulateArch {
     }
 
     #[inline(always)]
-    unsafe fn table() -> usize {
+    unsafe fn table() -> PhysicalAddress {
         MACHINE.as_mut().unwrap().get_table()
     }
 
     #[inline(always)]
-    unsafe fn set_table(address: usize) {
+    unsafe fn set_table(address: PhysicalAddress) {
         MACHINE.as_mut().unwrap().set_table(address);
     }
 }
@@ -108,8 +110,8 @@ static mut MACHINE: Option<Machine<EmulateArch>> = None;
 
 struct Machine<A> {
     memory: Box<[u8]>,
-    map: BTreeMap<usize, usize>,
-    table_addr: usize,
+    map: BTreeMap<VirtualAddress, PageEntry<A>>,
+    table_addr: PhysicalAddress,
     phantom: PhantomData<A>,
 }
 
@@ -118,12 +120,13 @@ impl<A: Arch> Machine<A> {
         Self {
             memory: vec![0; memory_size].into_boxed_slice(),
             map: BTreeMap::new(),
-            table_addr: 0,
+            table_addr: PhysicalAddress::new(0),
             phantom: PhantomData,
         }
     }
 
-    fn read_phys<T>(&self, phys: usize) -> T {
+    fn read_phys<T>(&self, phys: PhysicalAddress) -> T {
+        let phys = phys.data();
         let size = mem::size_of::<T>();
         if phys + size <= self.memory.len() {
             unsafe {
@@ -134,7 +137,8 @@ impl<A: Arch> Machine<A> {
         }
     }
 
-    fn write_phys<T>(&mut self, phys: usize, value: T) {
+    fn write_phys<T>(&mut self, phys: PhysicalAddress, value: T) {
+        let phys = phys.data();
         let size = mem::size_of::<T>();
         if phys + size <= self.memory.len() {
             unsafe {
@@ -145,104 +149,107 @@ impl<A: Arch> Machine<A> {
         }
     }
 
-    fn translate(&self, virt: usize) -> Option<(usize, usize)> {
-        let page = virt & A::PAGE_ADDRESS_MASK;
-        let offset = virt & A::PAGE_OFFSET_MASK;
-        let phys = self.map.get(&page)?;
+    fn translate(&self, virt: VirtualAddress) -> Option<(PhysicalAddress, usize)> {
+        let virt_data = virt.data();
+        let page = virt_data & A::PAGE_ADDRESS_MASK;
+        let offset = virt_data & A::PAGE_OFFSET_MASK;
+        let entry = self.map.get(&VirtualAddress::new(page))?;
         Some((
-            (phys & A::ENTRY_ADDRESS_MASK) + offset,
-            phys & A::ENTRY_FLAGS_MASK,
+            PhysicalAddress::new(entry.address().data() + offset),
+            entry.flags(),
         ))
     }
 
-    fn read<T>(&self, virt: usize) -> T {
+    fn read<T>(&self, virt: VirtualAddress) -> T {
         //TODO: allow reading past page boundaries
+        let virt_data = virt.data();
         let size = mem::size_of::<T>();
-        if (virt & A::PAGE_ADDRESS_MASK) != ((virt + (size - 1)) & A::PAGE_ADDRESS_MASK) {
-            panic!("read: 0x{:X} size 0x{:X} passes page boundary", virt, size);
+        if (virt_data & A::PAGE_ADDRESS_MASK) != ((virt_data + (size - 1)) & A::PAGE_ADDRESS_MASK) {
+            panic!("read: 0x{:X} size 0x{:X} passes page boundary", virt_data, size);
         }
 
         if let Some((phys, _flags)) = self.translate(virt) {
             self.read_phys(phys)
         } else {
-            panic!("read: 0x{:X} size 0x{:X} not present", virt, size);
+            panic!("read: 0x{:X} size 0x{:X} not present", virt_data, size);
         }
     }
 
-    fn write<T>(&mut self, virt: usize, value: T) {
+    fn write<T>(&mut self, virt: VirtualAddress, value: T) {
         //TODO: allow writing past page boundaries
+        let virt_data = virt.data();
         let size = mem::size_of::<T>();
-        if (virt & A::PAGE_ADDRESS_MASK) != ((virt + (size - 1)) & A::PAGE_ADDRESS_MASK) {
-            panic!("write: 0x{:X} size 0x{:X} passes page boundary", virt, size);
+        if (virt_data & A::PAGE_ADDRESS_MASK) != ((virt_data + (size - 1)) & A::PAGE_ADDRESS_MASK) {
+            panic!("write: 0x{:X} size 0x{:X} passes page boundary", virt_data, size);
         }
 
         if let Some((phys, flags)) = self.translate(virt) {
             if flags & A::ENTRY_FLAG_WRITABLE != 0 {
                 self.write_phys(phys, value);
             } else {
-                panic!("write: 0x{:X} size 0x{:X} not writable", virt, size);
+                panic!("write: 0x{:X} size 0x{:X} not writable", virt_data, size);
             }
         } else {
-            panic!("write: 0x{:X} size 0x{:X} not present", virt, size);
+            panic!("write: 0x{:X} size 0x{:X} not present", virt_data, size);
         }
     }
 
-    fn invalidate(&mut self, _address: usize) {
+    fn invalidate(&mut self, _address: VirtualAddress) {
         unimplemented!();
     }
 
+    //TODO: cleanup
     fn invalidate_all(&mut self) {
         self.map.clear();
 
         // PML4
-        let a4 = self.table_addr;
+        let a4 = self.table_addr.data();
         for i4 in 0..A::PAGE_ENTRIES {
-            let e3 = self.read_phys::<usize>(a4 + i4 * A::PAGE_ENTRY_SIZE);
+            let e3 = self.read_phys::<usize>(PhysicalAddress::new(a4 + i4 * A::PAGE_ENTRY_SIZE));
             let f3 = e3 & A::ENTRY_FLAGS_MASK;
             if f3 & A::ENTRY_FLAG_PRESENT == 0 { continue; }
 
             // Page directory pointer
             let a3 = e3 & A::ENTRY_ADDRESS_MASK;
             for i3 in 0..A::PAGE_ENTRIES {
-                let e2 = self.read_phys::<usize>(a3 + i3 * A::PAGE_ENTRY_SIZE);
+                let e2 = self.read_phys::<usize>(PhysicalAddress::new(a3 + i3 * A::PAGE_ENTRY_SIZE));
                 let f2 = e2 & A::ENTRY_FLAGS_MASK;
                 if f2 & A::ENTRY_FLAG_PRESENT == 0 { continue; }
 
                 // Page directory
                 let a2 = e2 & A::ENTRY_ADDRESS_MASK;
                 for i2 in 0..A::PAGE_ENTRIES {
-                    let e1 = self.read_phys::<usize>(a2 + i2 * A::PAGE_ENTRY_SIZE);
+                    let e1 = self.read_phys::<usize>(PhysicalAddress::new(a2 + i2 * A::PAGE_ENTRY_SIZE));
                     let f1 = e1 & A::ENTRY_FLAGS_MASK;
                     if f1 & A::ENTRY_FLAG_PRESENT == 0 { continue; }
 
                     // Page table
                     let a1 = e1 & A::ENTRY_ADDRESS_MASK;
                     for i1 in 0..A::PAGE_ENTRIES {
-                        let e = self.read_phys::<usize>(a1 + i1 * A::PAGE_ENTRY_SIZE);
+                        let e = self.read_phys::<usize>(PhysicalAddress::new(a1 + i1 * A::PAGE_ENTRY_SIZE));
                         let f = e & A::ENTRY_FLAGS_MASK;
                         if f & A::ENTRY_FLAG_PRESENT == 0 { continue; }
 
                         // Page
                         let a = e & A::ENTRY_ADDRESS_MASK;
                         let page =
-                            if i4 >= 256 { 0xFFFF_0000_0000_0000 } else { 0 } |
                             (i4 << 39) |
                             (i3 << 30) |
                             (i2 << 21) |
                             (i1 << 12);
                         println!("map 0x{:X} to 0x{:X}, 0x{:X}", page, a, f);
-                        self.map.insert(page, e);
+                        self.map.insert(VirtualAddress::new(page), PageEntry::new(e));
                     }
                 }
             }
         }
     }
 
-    fn get_table(&self) -> usize {
+    fn get_table(&self) -> PhysicalAddress {
         self.table_addr
     }
 
-    fn set_table(&mut self, address: usize) {
+    fn set_table(&mut self, address: PhysicalAddress) {
         self.table_addr = address;
         self.invalidate_all();
     }

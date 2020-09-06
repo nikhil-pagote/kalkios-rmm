@@ -40,22 +40,22 @@ pub trait Arch {
     unsafe fn init() -> &'static [MemoryArea];
 
     #[inline(always)]
-    unsafe fn read<T>(address: usize) -> T {
-        ptr::read(address as *const T)
+    unsafe fn read<T>(address: VirtualAddress) -> T {
+        ptr::read(address.data() as *const T)
     }
 
     #[inline(always)]
-    unsafe fn write<T>(address: usize, value: T) {
-        ptr::write(address as *mut T, value)
+    unsafe fn write<T>(address: VirtualAddress, value: T) {
+        ptr::write(address.data() as *mut T, value)
     }
 
-    unsafe fn invalidate(address: usize);
+    unsafe fn invalidate(address: VirtualAddress);
 
     unsafe fn invalidate_all();
 
-    unsafe fn table() -> usize;
+    unsafe fn table() -> PhysicalAddress;
 
-    unsafe fn set_table(address: usize);
+    unsafe fn set_table(address: PhysicalAddress);
 
     unsafe fn phys_to_virt(phys: PhysicalAddress) -> VirtualAddress {
         VirtualAddress::new(phys.data() + Self::PAGE_OFFSET)

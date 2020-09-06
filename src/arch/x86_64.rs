@@ -1,6 +1,8 @@
 use crate::{
     Arch,
-    MemoryArea
+    MemoryArea,
+    PhysicalAddress,
+    VirtualAddress,
 };
 
 pub struct X8664Arch;
@@ -24,7 +26,7 @@ impl Arch for X8664Arch {
     }
 
     #[inline(always)]
-    unsafe fn invalidate(address: usize) {
+    unsafe fn invalidate(address: VirtualAddress) {
         //TODO: invlpg address
         unimplemented!();
     }
@@ -36,13 +38,13 @@ impl Arch for X8664Arch {
     }
 
     #[inline(always)]
-    unsafe fn table() -> usize {
+    unsafe fn table() -> PhysicalAddress {
         //TODO: return cr3
         unimplemented!();
     }
 
     #[inline(always)]
-    unsafe fn set_table(address: usize) {
+    unsafe fn set_table(address: PhysicalAddress) {
         //TODO: mov cr3, address
         unimplemented!();
     }

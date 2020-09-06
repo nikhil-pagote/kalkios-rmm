@@ -1,7 +1,8 @@
 use rmm::{
     Arch,
     EmulateArch,
-    PageTable
+    PageTable,
+    VirtualAddress,
 };
 
 unsafe fn dump_tables<A: Arch>(table: PageTable<A>) {
@@ -28,16 +29,16 @@ unsafe fn inner<A: Arch>() {
     // Debug table
     dump_tables(PageTable::<A>::top());
 
-    let megabyte = 0x100000;
+    let megabyte = VirtualAddress::new(0x100000);
 
     // Test read
-    println!("0x{:X} = 0x{:X}", megabyte, A::read::<u8>(megabyte));
+    println!("0x{:X} = 0x{:X}", megabyte.data(), A::read::<u8>(megabyte));
 
     // Test write
     A::write::<u8>(megabyte, 0x5A);
 
     // Test read
-    println!("0x{:X} = 0x{:X}", megabyte, A::read::<u8>(megabyte));
+    println!("0x{:X} = 0x{:X}", megabyte.data(), A::read::<u8>(megabyte));
 }
 
 fn main() {
