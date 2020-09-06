@@ -126,26 +126,24 @@ impl<A: Arch> Machine<A> {
     }
 
     fn read_phys<T>(&self, phys: PhysicalAddress) -> T {
-        let phys = phys.data();
         let size = mem::size_of::<T>();
-        if phys + size <= self.memory.len() {
+        if phys.add(size).data() <= self.memory.len() {
             unsafe {
-                ptr::read(self.memory.as_ptr().add(phys) as *const T)
+                ptr::read(self.memory.as_ptr().add(phys.data()) as *const T)
             }
         } else {
-            panic!("read_phys: 0x{:X} size 0x{:X} outside of memory", phys, size);
+            panic!("read_phys: 0x{:X} size 0x{:X} outside of memory", phys.data(), size);
         }
     }
 
     fn write_phys<T>(&mut self, phys: PhysicalAddress, value: T) {
-        let phys = phys.data();
         let size = mem::size_of::<T>();
-        if phys + size <= self.memory.len() {
+        if phys.add(size).data() <= self.memory.len() {
             unsafe {
-                ptr::write(self.memory.as_mut_ptr().add(phys) as *mut T, value);
+                ptr::write(self.memory.as_mut_ptr().add(phys.data()) as *mut T, value);
             }
         } else {
-            panic!("write_phys: 0x{:X} size 0x{:X} outside of memory", phys, size);
+            panic!("write_phys: 0x{:X} size 0x{:X} outside of memory", phys.data(), size);
         }
     }
 
@@ -155,7 +153,7 @@ impl<A: Arch> Machine<A> {
         let offset = virt_data & A::PAGE_OFFSET_MASK;
         let entry = self.map.get(&VirtualAddress::new(page))?;
         Some((
-            PhysicalAddress::new(entry.address().data() + offset),
+            entry.address().add(offset),
             entry.flags(),
         ))
     }

@@ -55,9 +55,7 @@ impl<A: Arch> PageTable<A> {
 
     pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {
         if i < A::PAGE_ENTRIES {
-            Some(VirtualAddress::new(
-                self.base.data() + (i << (self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT))
-            ))
+            Some(self.base.add(i << (self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT)))
         } else {
             None
         }
@@ -65,9 +63,7 @@ impl<A: Arch> PageTable<A> {
 
     pub unsafe fn entry_virt(&self, i: usize) -> Option<VirtualAddress> {
         if i < A::PAGE_ENTRIES {
-            Some(VirtualAddress::new(
-                self.virt().data() + i * A::PAGE_ENTRY_SIZE
-            ))
+            Some(self.virt().add(i * A::PAGE_ENTRY_SIZE))
         } else {
             None
         }

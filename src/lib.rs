@@ -16,12 +16,19 @@ mod page;
 pub struct PhysicalAddress(usize);
 
 impl PhysicalAddress {
+    #[inline(always)]
     pub const fn new(address: usize) -> Self {
         Self(address)
     }
 
+    #[inline(always)]
     pub fn data(&self) -> usize {
         self.0
+    }
+
+    #[inline(always)]
+    pub fn add(self, offset: usize) -> Self {
+        Self(self.0 + offset)
     }
 }
 
@@ -31,16 +38,23 @@ impl PhysicalAddress {
 pub struct VirtualAddress(usize);
 
 impl VirtualAddress {
+    #[inline(always)]
     pub const fn new(address: usize) -> Self {
         Self(address)
     }
 
+    #[inline(always)]
     pub fn data(&self) -> usize {
         self.0
+    }
+
+    #[inline(always)]
+    pub fn add(self, offset: usize) -> Self {
+        Self(self.0 + offset)
     }
 }
 
 pub struct MemoryArea {
-    base: PhysicalAddress,
-    size: usize,
+    pub base: PhysicalAddress,
+    pub size: usize,
 }
