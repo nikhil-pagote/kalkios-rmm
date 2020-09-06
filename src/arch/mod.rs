@@ -51,7 +51,10 @@ pub trait Arch {
 
     unsafe fn invalidate(address: VirtualAddress);
 
-    unsafe fn invalidate_all();
+    #[inline(always)]
+    unsafe fn invalidate_all() {
+        Self::set_table(Self::table());
+    }
 
     unsafe fn table() -> PhysicalAddress;
 

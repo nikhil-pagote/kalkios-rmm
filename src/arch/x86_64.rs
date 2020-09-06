@@ -31,20 +31,15 @@ impl Arch for X8664Arch {
     }
 
     #[inline(always)]
-    unsafe fn invalidate_all() {
-        Self::set_table(Self::table());
-    }
-
-    #[inline(always)]
     unsafe fn table() -> PhysicalAddress {
         let address: usize;
-        asm!("mov rax, cr3", out("rax") address);
+        asm!("mov {0}, cr3", out(reg) address);
         PhysicalAddress::new(address)
     }
 
     #[inline(always)]
     unsafe fn set_table(address: PhysicalAddress) {
-        asm!("mov cr3, rax", in("rax") address.data());
+        asm!("mov cr3, {0}", in(reg) address.data());
     }
 }
 
