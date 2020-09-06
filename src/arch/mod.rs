@@ -13,7 +13,6 @@ pub trait Arch {
     const PAGE_SHIFT: usize;
     const PAGE_ENTRY_SHIFT: usize;
     const PAGE_LEVELS: usize;
-    const PAGE_OFFSET: usize;
 
     const ENTRY_ADDRESS_SHIFT: usize;
     const ENTRY_FLAG_PRESENT: usize;
@@ -22,6 +21,8 @@ pub trait Arch {
     const ENTRY_FLAG_HUGE: usize;
     const ENTRY_FLAG_GLOBAL: usize;
     const ENTRY_FLAG_NO_EXEC: usize;
+
+    const PHYS_OFFSET: usize;
 
     const PAGE_SIZE: usize = 1 << Self::PAGE_SHIFT;
     const PAGE_OFFSET_MASK: usize = Self::PAGE_SIZE - 1;
@@ -61,6 +62,6 @@ pub trait Arch {
     unsafe fn set_table(address: PhysicalAddress);
 
     unsafe fn phys_to_virt(phys: PhysicalAddress) -> VirtualAddress {
-        VirtualAddress::new(phys.data() + Self::PAGE_OFFSET)
+        VirtualAddress::new(phys.data() + Self::PHYS_OFFSET)
     }
 }

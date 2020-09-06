@@ -40,17 +40,16 @@ impl<A: Arch> PageTable<A> {
     }
 
     pub unsafe fn virt(&self) -> VirtualAddress {
-        // Recursive mapping
-        let mut addr = 0xFFFF_FFFF_FFFF_F000;
-        for level in (self.level + 1 .. A::PAGE_LEVELS).rev() {
-            let index = (self.base.0 >> (level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT)) & A::PAGE_ENTRY_MASK;
-            addr <<= A::PAGE_ENTRY_SHIFT;
-            addr |= index << A::PAGE_SHIFT;
-        }
-        VirtualAddress::new(addr)
+        A::phys_to_virt(self.phys)
 
-        // Identity mapping
-        //VirtualAddress(self.phys.0)
+        // Recursive mapping
+        // let mut addr = 0xFFFF_FFFF_FFFF_F000;
+        // for level in (self.level + 1 .. A::PAGE_LEVELS).rev() {
+        //     let index = (self.base.0 >> (level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT)) & A::PAGE_ENTRY_MASK;
+        //     addr <<= A::PAGE_ENTRY_SHIFT;
+        //     addr |= index << A::PAGE_SHIFT;
+        // }
+        // VirtualAddress::new(addr)
     }
 
     pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {

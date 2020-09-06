@@ -20,7 +20,6 @@ impl Arch for EmulateArch {
     const PAGE_SHIFT: usize = X8664Arch::PAGE_SHIFT;
     const PAGE_ENTRY_SHIFT: usize = X8664Arch::PAGE_ENTRY_SHIFT;
     const PAGE_LEVELS: usize = X8664Arch::PAGE_LEVELS;
-    const PAGE_OFFSET: usize = X8664Arch::PAGE_OFFSET;
 
     const ENTRY_ADDRESS_SHIFT: usize = X8664Arch::ENTRY_ADDRESS_SHIFT;
     const ENTRY_FLAG_PRESENT: usize = X8664Arch::ENTRY_FLAG_PRESENT;
@@ -29,6 +28,8 @@ impl Arch for EmulateArch {
     const ENTRY_FLAG_HUGE: usize = X8664Arch::ENTRY_FLAG_HUGE;
     const ENTRY_FLAG_GLOBAL: usize = X8664Arch::ENTRY_FLAG_GLOBAL;
     const ENTRY_FLAG_NO_EXEC: usize = X8664Arch::ENTRY_FLAG_NO_EXEC;
+
+    const PHYS_OFFSET: usize = X8664Arch::PHYS_OFFSET;
 
     unsafe fn init() -> &'static [MemoryArea] {
         // Create machine with PAGE_ENTRIES pages identity mapped (2 MiB on x86_64)
@@ -41,8 +42,8 @@ impl Arch for EmulateArch {
         let flags = Self::ENTRY_FLAG_WRITABLE | Self::ENTRY_FLAG_PRESENT;
         machine.write_phys::<usize>(PhysicalAddress::new(pml4), pdp | flags);
 
-        // Recursive mapping
-        machine.write_phys::<usize>(PhysicalAddress::new(pml4 + (Self::PAGE_ENTRIES - 1) * Self::PAGE_ENTRY_SIZE), pml4 | flags);
+        // PML4 index 256, set to PDP again for PHYS_OFFSET mapping
+        machine.write_phys::<usize>(PhysicalAddress::new(pml4 + 256 * Self::PAGE_ENTRY_SIZE), pdp | flags);
 
         // PDP link to PD
         let pd = pdp + Self::PAGE_SIZE;
