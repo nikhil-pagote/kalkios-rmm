@@ -32,17 +32,13 @@ impl Arch for EmulateArch {
     const PHYS_OFFSET: usize = X8664Arch::PHYS_OFFSET;
 
     unsafe fn init() -> &'static [MemoryArea] {
-        // Create machine with PAGE_ENTRIES pages identity mapped (2 MiB on x86_64)
-        // Pages over 1 MiB will be mapped writable
+        // Create machine with PAGE_ENTRIES pages offset mapped (2 MiB on x86_64)
         let mut machine = Machine::new(MEMORY_SIZE);
 
-        // PML4 link to PDP
+        // PML4 index 256 (PHYS_OFFSET) link to PDP
         let pml4 = 0;
         let pdp = pml4 + Self::PAGE_SIZE;
         let flags = Self::ENTRY_FLAG_WRITABLE | Self::ENTRY_FLAG_PRESENT;
-        machine.write_phys::<usize>(PhysicalAddress::new(pml4), pdp | flags);
-
-        // PML4 index 256, set to PDP again for PHYS_OFFSET mapping
         machine.write_phys::<usize>(PhysicalAddress::new(pml4 + 256 * Self::PAGE_ENTRY_SIZE), pdp | flags);
 
         // PDP link to PD
@@ -102,7 +98,7 @@ const MEGABYTE: usize = 1024 * 1024;
 const MEMORY_SIZE: usize = 64 * MEGABYTE;
 static MEMORY_AREAS: [MemoryArea; 1] = [
     MemoryArea {
-        base: PhysicalAddress::new(MEGABYTE),
+        base: PhysicalAddress::new(EmulateArch::PAGE_SIZE * 4), // Initial PML4, PDP, PD, and PT wasted
         size: MEMORY_SIZE,
     }
 ];
