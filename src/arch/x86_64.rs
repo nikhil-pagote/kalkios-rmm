@@ -27,26 +27,24 @@ impl Arch for X8664Arch {
 
     #[inline(always)]
     unsafe fn invalidate(address: VirtualAddress) {
-        //TODO: invlpg address
-        unimplemented!();
+        asm!("invlpg [{0}]", in(reg) address.data());
     }
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        //TODO: mov cr3, cr3
-        unimplemented!();
+        Self::set_table(Self::table());
     }
 
     #[inline(always)]
     unsafe fn table() -> PhysicalAddress {
-        //TODO: return cr3
-        unimplemented!();
+        let address: usize;
+        asm!("mov rax, cr3", out("rax") address);
+        PhysicalAddress::new(address)
     }
 
     #[inline(always)]
     unsafe fn set_table(address: PhysicalAddress) {
-        //TODO: mov cr3, address
-        unimplemented!();
+        asm!("mov cr3, rax", in("rax") address.data());
     }
 }
 

@@ -1,3 +1,5 @@
+#![feature(asm)]
+
 pub use crate::{
     arch::Arch,
     arch::emulate::*,
