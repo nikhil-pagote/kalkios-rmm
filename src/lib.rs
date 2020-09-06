@@ -23,10 +23,6 @@ impl PhysicalAddress {
     pub unsafe fn data(&self) -> usize {
         self.0
     }
-
-    pub const fn aligned(&self) -> bool {
-        self.0 & PAGE_OFFSET_MASK == 0
-    }
 }
 
 // Virtual memory address
@@ -41,10 +37,6 @@ impl VirtualAddress {
 
     pub unsafe fn data(&self) -> usize {
         self.0
-    }
-
-    pub const fn aligned(&self) -> bool {
-        self.0 & PAGE_OFFSET_MASK == 0
     }
 }
 

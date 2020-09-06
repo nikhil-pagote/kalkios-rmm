@@ -4,12 +4,6 @@ use crate::{
     Arch,
     PhysicalAddress,
     VirtualAddress,
-    PAGE_ENTRIES,
-    PAGE_ENTRY_MASK,
-    PAGE_ENTRY_SHIFT,
-    PAGE_ENTRY_SIZE,
-    PAGE_LEVELS,
-    PAGE_SHIFT,
 };
 use super::PageEntry;
 
@@ -29,7 +23,7 @@ impl<A: Arch> PageTable<A> {
         Self::new(
             VirtualAddress::new(0),
             PhysicalAddress::new(A::table()),
-            PAGE_LEVELS - 1
+            A::PAGE_LEVELS - 1
         )
     }
 
@@ -48,10 +42,10 @@ impl<A: Arch> PageTable<A> {
     pub unsafe fn virt(&self) -> VirtualAddress {
         // Recursive mapping
         let mut addr = 0xFFFF_FFFF_FFFF_F000;
-        for level in (self.level + 1 .. PAGE_LEVELS).rev() {
-            let index = (self.base.0 >> (level * PAGE_ENTRY_SHIFT + PAGE_SHIFT)) & PAGE_ENTRY_MASK;
-            addr <<= PAGE_ENTRY_SHIFT;
-            addr |= index << PAGE_SHIFT;
+        for level in (self.level + 1 .. A::PAGE_LEVELS).rev() {
+            let index = (self.base.0 >> (level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT)) & A::PAGE_ENTRY_MASK;
+            addr <<= A::PAGE_ENTRY_SHIFT;
+            addr |= index << A::PAGE_SHIFT;
         }
         VirtualAddress(addr)
 
@@ -60,9 +54,9 @@ impl<A: Arch> PageTable<A> {
     }
 
     pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {
-        if i < PAGE_ENTRIES {
+        if i < A::PAGE_ENTRIES {
             Some(VirtualAddress(
-                self.base.0 + (i << (self.level * PAGE_ENTRY_SHIFT + PAGE_SHIFT))
+                self.base.0 + (i << (self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT))
             ))
         } else {
             None
@@ -70,21 +64,21 @@ impl<A: Arch> PageTable<A> {
     }
 
     pub unsafe fn entry_virt(&self, i: usize) -> Option<VirtualAddress> {
-        if i < PAGE_ENTRIES {
+        if i < A::PAGE_ENTRIES {
             Some(VirtualAddress(
-                self.virt().0 + i * PAGE_ENTRY_SIZE
+                self.virt().0 + i * A::PAGE_ENTRY_SIZE
             ))
         } else {
             None
         }
     }
 
-    pub unsafe fn entry(&self, i: usize) -> Option<PageEntry> {
+    pub unsafe fn entry(&self, i: usize) -> Option<PageEntry<A>> {
         let addr = self.entry_virt(i)?;
         Some(PageEntry::new(A::read::<usize>(addr.0)))
     }
 
-    pub unsafe fn set_entry(&mut self, i: usize, entry: PageEntry) -> Option<()> {
+    pub unsafe fn set_entry(&mut self, i: usize, entry: PageEntry<A>) -> Option<()> {
         let addr = self.entry_virt(i)?;
         A::write::<usize>(addr.0, entry.data());
         Some(())

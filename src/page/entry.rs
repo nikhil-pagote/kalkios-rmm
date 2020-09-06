@@ -1,27 +1,30 @@
+use core::marker::PhantomData;
+
 use crate::{
+    Arch,
     PhysicalAddress,
-    ENTRY_ADDRESS_MASK,
-    ENTRY_FLAG_PRESENT,
 };
 
 #[derive(Clone, Copy, Debug)]
-#[repr(transparent)]
-pub struct PageEntry(usize);
+pub struct PageEntry<A> {
+    data: usize,
+    phantom: PhantomData<A>,
+}
 
-impl PageEntry {
+impl<A: Arch> PageEntry<A> {
     pub unsafe fn new(data: usize) -> Self {
-        Self(data)
+        Self { data, phantom: PhantomData }
     }
 
     pub fn data(&self) -> usize {
-        self.0
+        self.data
     }
 
     pub fn address(&self) -> PhysicalAddress {
-        PhysicalAddress(self.0 & ENTRY_ADDRESS_MASK)
+        PhysicalAddress(self.data & A::ENTRY_ADDRESS_MASK)
     }
 
     pub fn present(&self) -> bool {
-        self.0 & ENTRY_FLAG_PRESENT != 0
+        self.data & A::ENTRY_FLAG_PRESENT != 0
     }
 }

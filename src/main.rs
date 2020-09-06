@@ -1,8 +1,12 @@
-use rmm::*;
+use rmm::{
+    Arch,
+    EmulateArch,
+    PageTable
+};
 
 unsafe fn dump_tables<A: Arch>(table: PageTable<A>) {
     let level = table.level();
-    for i in 0..PAGE_ENTRIES {
+    for i in 0..A::PAGE_ENTRIES {
         if level == 0 {
             if let Some(entry) = table.entry(i) {
                 if entry.present() {
