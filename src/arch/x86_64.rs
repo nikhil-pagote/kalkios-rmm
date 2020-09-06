@@ -45,3 +45,24 @@ impl Arch for X8664Arch {
         unimplemented!();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Arch;
+    use super::X8664Arch;
+
+    #[test]
+    fn constants() {
+        assert_eq!(X8664Arch::PAGE_SIZE, 4096);
+        assert_eq!(X8664Arch::PAGE_OFFSET_MASK, 0xFFF);
+        assert_eq!(X8664Arch::PAGE_ADDRESS_SHIFT, 48);
+        assert_eq!(X8664Arch::PAGE_ADDRESS_SIZE, 0x0001_0000_0000_0000);
+        assert_eq!(X8664Arch::PAGE_ADDRESS_MASK, 0x0000_FFFF_FFFF_F000);
+        assert_eq!(X8664Arch::PAGE_ENTRY_SIZE, 8);
+        assert_eq!(X8664Arch::PAGE_ENTRIES, 512);
+        assert_eq!(X8664Arch::PAGE_ENTRY_MASK, 0x1FF);
+
+        assert_eq!(X8664Arch::ENTRY_ADDRESS_MASK, 0x0000_FFFF_FFFF_F000);
+        assert_eq!(X8664Arch::ENTRY_FLAGS_MASK, 0xFFFF_0000_0000_0FFF);
+    }
+}
