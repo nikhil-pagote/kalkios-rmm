@@ -18,6 +18,7 @@ impl Arch for EmulateArch {
     const PAGE_SHIFT: usize = X8664Arch::PAGE_SHIFT;
     const PAGE_ENTRY_SHIFT: usize = X8664Arch::PAGE_ENTRY_SHIFT;
     const PAGE_LEVELS: usize = X8664Arch::PAGE_LEVELS;
+    const PAGE_OFFSET: usize = X8664Arch::PAGE_OFFSET;
 
     const ENTRY_ADDRESS_SHIFT: usize = X8664Arch::ENTRY_ADDRESS_SHIFT;
     const ENTRY_FLAG_PRESENT: usize = X8664Arch::ENTRY_FLAG_PRESENT;
