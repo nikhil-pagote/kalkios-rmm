@@ -99,7 +99,7 @@ const MEMORY_SIZE: usize = 64 * MEGABYTE;
 static MEMORY_AREAS: [MemoryArea; 1] = [
     MemoryArea {
         base: PhysicalAddress::new(EmulateArch::PAGE_SIZE * 4), // Initial PML4, PDP, PD, and PT wasted
-        size: MEMORY_SIZE,
+        size: MEMORY_SIZE - EmulateArch::PAGE_SIZE * 4,
     }
 ];
 
@@ -232,7 +232,7 @@ impl<A: Arch> Machine<A> {
                             (i3 << 30) |
                             (i2 << 21) |
                             (i1 << 12);
-                        println!("map 0x{:X} to 0x{:X}, 0x{:X}", page, a, f);
+                        //println!("map 0x{:X} to 0x{:X}, 0x{:X}", page, a, f);
                         self.map.insert(VirtualAddress::new(page), PageEntry::new(e));
                     }
                 }
