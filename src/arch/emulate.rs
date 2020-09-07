@@ -6,6 +6,7 @@ use core::{
 use std::collections::BTreeMap;
 
 use crate::{
+    MEGABYTE,
     Arch,
     MemoryArea,
     PageEntry,
@@ -94,7 +95,6 @@ impl Arch for EmulateArch {
     }
 }
 
-const MEGABYTE: usize = 1024 * 1024;
 const MEMORY_SIZE: usize = 64 * MEGABYTE;
 static MEMORY_AREAS: [MemoryArea; 1] = [
     MemoryArea {

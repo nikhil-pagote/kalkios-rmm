@@ -12,6 +12,11 @@ pub use crate::{
 mod arch;
 mod page;
 
+pub const KILOBYTE: usize = 1024;
+pub const MEGABYTE: usize = KILOBYTE * KILOBYTE;
+pub const GIGABYTE: usize = KILOBYTE * MEGABYTE;
+pub const TERABYTE: usize = KILOBYTE * GIGABYTE;
+
 // Physical memory address
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
