@@ -54,7 +54,8 @@ impl<A: Arch> PageTable<A> {
 
     pub fn entry_base(&self, i: usize) -> Option<VirtualAddress> {
         if i < A::PAGE_ENTRIES {
-            Some(self.base.add(i << (self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT)))
+            let level_shift = self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT;
+            Some(self.base.add(i << level_shift))
         } else {
             None
         }
@@ -77,6 +78,18 @@ impl<A: Arch> PageTable<A> {
         let addr = self.entry_virt(i)?;
         A::write::<usize>(addr, entry.data());
         Some(())
+    }
+
+    pub unsafe fn index_of(&self, address: VirtualAddress) -> Option<usize> {
+        // Canonicalize address first
+        let address = VirtualAddress::new(address.data() & A::PAGE_ADDRESS_MASK);
+        let level_shift = self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT;
+        let level_mask = (A::PAGE_ENTRIES << level_shift) - 1;
+        if address >= self.base && address <= self.base.add(level_mask) {
+            Some((address.data() >> level_shift) & A::PAGE_ENTRY_MASK)
+        } else {
+            None
+        }
     }
 
     pub unsafe fn next(&self, i: usize) -> Option<Self> {
