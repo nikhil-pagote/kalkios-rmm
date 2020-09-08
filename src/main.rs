@@ -218,6 +218,7 @@ pub struct BuddyMapFooter {
 pub struct BuddyAllocator<A> {
     table_phys: PhysicalAddress,
     table_virt: VirtualAddress,
+    clear_frees: bool,
     phantom: PhantomData<A>,
 }
 
@@ -226,7 +227,7 @@ impl<A: Arch> BuddyAllocator<A> {
     const MAP_PAGE_BYTES: usize = (A::PAGE_SIZE - mem::size_of::<BuddyMapFooter>());
     const MAP_PAGE_BITS: usize = Self::MAP_PAGE_BYTES * 8;
 
-    pub unsafe fn new(areas: &'static [MemoryArea], offset: usize) -> Option<Self> {
+    pub unsafe fn new(areas: &'static [MemoryArea], offset: usize, clear_frees: bool) -> Option<Self> {
         // First, we need an allocator, so we can allocate the buddy tables
         // Since the tables are static, we can use the bump allocator
         let mut bump_allocator = BumpAllocator::<A>::new(areas, offset);
@@ -242,6 +243,7 @@ impl<A: Arch> BuddyAllocator<A> {
         let mut allocator = Self {
             table_phys,
             table_virt,
+            clear_frees,
             phantom: PhantomData,
         };
 
@@ -343,8 +345,8 @@ impl<A: Arch> BuddyAllocator<A> {
                             if (value & (1 << bit)) != 0 {
                                 value &= !(1 << bit);
                                 A::write(map_byte_virt, value);
-                                let base = entry.base.add(offset + bit * A::PAGE_SIZE);
-                                return Some(base);
+                                let page_phys = entry.base.add(offset + bit * A::PAGE_SIZE);
+                                return Some(page_phys);
                             }
                         }
                     }
@@ -359,6 +361,18 @@ impl<A: Arch> BuddyAllocator<A> {
     }
 
     pub unsafe fn free(&mut self, base: PhysicalAddress, size: usize) {
+        if self.clear_frees {
+            // Zero freed pages for security, also ensures all allocs are zerod
+            //TODO: improve performance
+            //TODO: assumes linear physical mapping
+            let mut zero_virt = A::phys_to_virt(base);
+            let zero_end = zero_virt.add(size);
+            while zero_virt < zero_end {
+                A::write(zero_virt, 0usize);
+                zero_virt = zero_virt.add(mem::size_of::<usize>());
+            }
+        }
+
         for i in 0 .. Self::BUDDY_ENTRIES {
             let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
             let entry = A::read::<BuddyEntry>(virt);
@@ -469,7 +483,7 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
     let offset = mapper.allocator.offset;
     println!("Permanently used: {}", format_size(offset));
 
-    let mut allocator = BuddyAllocator::<A>::new(areas, offset).unwrap();
+    let mut allocator = BuddyAllocator::<A>::new(areas, offset, true).unwrap();
     for i in 0..16 {
         let phys_opt = allocator.allocate(4 * KILOBYTE);
         println!("4 KB page {}: {:X?}", i, phys_opt);
