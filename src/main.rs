@@ -9,7 +9,6 @@ use rmm::{
     EmulateArch,
     FrameAllocator,
     MemoryArea,
-    PageEntry,
     PageFlushAll,
     PageMapper,
     PageTable,
@@ -197,7 +196,7 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
         }
 
         // Use the new table
-        mapper.activate();
+        mapper.make_current();
     }
 
     // Create the physical memory map

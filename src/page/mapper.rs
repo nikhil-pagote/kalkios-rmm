@@ -35,7 +35,7 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
         Self::new(table_addr, allocator)
     }
 
-    pub unsafe fn activate(&mut self) {
+    pub unsafe fn make_current(&mut self) {
         A::set_table(self.table_addr);
     }
 
