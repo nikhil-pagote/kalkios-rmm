@@ -222,6 +222,7 @@ pub struct BuddyAllocator<A> {
 }
 
 impl<A: Arch> BuddyAllocator<A> {
+    const BUDDY_ENTRIES: usize = A::PAGE_SIZE / mem::size_of::<BuddyEntry>();
     const MAP_PAGE_BYTES: usize = (A::PAGE_SIZE - mem::size_of::<BuddyMapFooter>());
     const MAP_PAGE_BITS: usize = Self::MAP_PAGE_BYTES * 8;
 
@@ -276,7 +277,7 @@ impl<A: Arch> BuddyAllocator<A> {
         //TODO: sort areas?
 
         // Allocate buddy maps
-        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
+        for i in 0 .. Self::BUDDY_ENTRIES {
             let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
             let mut entry = A::read::<BuddyEntry>(virt);
             if entry.size > 0 {
@@ -298,7 +299,7 @@ impl<A: Arch> BuddyAllocator<A> {
                     });
                     entry.map = map_phys;
                 }
-                
+
                 A::write(virt, entry);
             }
         }
@@ -319,13 +320,49 @@ impl<A: Arch> BuddyAllocator<A> {
         Some(allocator)
     }
 
+    pub unsafe fn allocate(&mut self, size: usize) -> Option<PhysicalAddress> {
+        //TODO: support other sizes
+        if size != A::PAGE_SIZE {
+            return None;
+        }
+
+        for i in 0 .. Self::BUDDY_ENTRIES {
+            let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
+            let entry = A::read::<BuddyEntry>(virt);
+
+            //TODO: improve performance
+            let mut map_phys = entry.map;
+            let mut offset = 0;
+            while map_phys.data() != 0 {
+                let map_virt = A::phys_to_virt(map_phys);
+                for i in 0 .. Self::MAP_PAGE_BYTES {
+                    let map_byte_virt = map_virt.add(i);
+                    let mut value: u8 = A::read(map_byte_virt);
+                    if (value & u8::MAX) != 0 {
+                        for bit in 0..8 {
+                            if (value & (1 << bit)) != 0 {
+                                value &= !(1 << bit);
+                                A::write(map_byte_virt, value);
+                                let base = entry.base.add(offset + bit * A::PAGE_SIZE);
+                                return Some(base);
+                            }
+                        }
+                    }
+                    offset += A::PAGE_SIZE * 8;
+                }
+
+                let footer = A::read::<BuddyMapFooter>(map_virt);
+                map_phys = footer.next;
+            }
+        }
+        None
+    }
+
     pub unsafe fn free(&mut self, base: PhysicalAddress, size: usize) {
-        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
+        for i in 0 .. Self::BUDDY_ENTRIES {
             let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
             let entry = A::read::<BuddyEntry>(virt);
             if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
-                println!("{:X}:{:X} inside of {:X}:{:X}", base.data(), size, entry.base.data(), entry.size);
-
                 //TODO: Correct logic
                 let pages = size / A::PAGE_SIZE;
                 for page in 0 .. pages {
@@ -333,7 +370,6 @@ impl<A: Arch> BuddyAllocator<A> {
                     let index = (page_base.data() - entry.base.data()) / A::PAGE_SIZE;
                     let mut map_page = index / Self::MAP_PAGE_BITS;
                     let map_bit = index % Self::MAP_PAGE_BITS;
-                    println!("index {} => map_page {}, map_bit {}", index, map_page, map_bit);
 
                     //TODO: improve performance
                     let mut map_phys = entry.map;
@@ -345,7 +381,7 @@ impl<A: Arch> BuddyAllocator<A> {
                             let mut value: u8 = A::read(map_byte_virt);
                             value |= 1 << (map_bit % 8);
                             A::write(map_byte_virt, value);
-                            return;
+                            break;
                         } else {
                             let footer = A::read::<BuddyMapFooter>(map_virt);
                             map_phys = footer.next;
@@ -433,16 +469,16 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
     let offset = mapper.allocator.offset;
     println!("Permanently used: {}", format_size(offset));
 
-    let mut allocator = BuddyAllocator::<A>::new(areas, offset);
-    // for i in 0..16 {
-    //     let phys_opt = allocator.allocate(4 * KILOBYTE);
-    //     println!("4 KB page {}: {:X?}", i, phys_opt);
-    //     if i % 2 == 0 {
-    //         if let Some(phys) = phys_opt {
-    //             allocator.free(phys, 4 * KILOBYTE);
-    //         }
-    //     }
-    // }
+    let mut allocator = BuddyAllocator::<A>::new(areas, offset).unwrap();
+    for i in 0..16 {
+        let phys_opt = allocator.allocate(4 * KILOBYTE);
+        println!("4 KB page {}: {:X?}", i, phys_opt);
+        if i % 2 == 0 {
+            if let Some(phys) = phys_opt {
+                allocator.free(phys, 4 * KILOBYTE);
+            }
+        }
+    }
     // for i in 0..16 {
     //     let phys_opt = allocator.allocate(2 * MEGABYTE);
     //     println!("2 MB page {}: {:X?}", i, phys_opt);
