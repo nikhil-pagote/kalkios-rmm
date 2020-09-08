@@ -49,7 +49,7 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
         None
     }
 
-    unsafe fn free(&mut self, address: PhysicalAddress, count: usize) {
+    unsafe fn free(&mut self, _address: PhysicalAddress, _count: usize) {
         unimplemented!();
     }
 }

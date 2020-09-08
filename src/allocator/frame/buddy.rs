@@ -7,7 +7,6 @@ use crate::{
     Arch,
     BumpAllocator,
     FrameAllocator,
-    MemoryArea,
     PhysicalAddress,
     VirtualAddress,
 };
@@ -38,7 +37,6 @@ struct BuddyMapFooter {
 }
 
 pub struct BuddyAllocator<A> {
-    table_phys: PhysicalAddress,
     table_virt: VirtualAddress,
     clear_frees: bool,
     phantom: PhantomData<A>,
@@ -59,7 +57,6 @@ impl<A: Arch> BuddyAllocator<A> {
         }
 
         let mut allocator = Self {
-            table_phys,
             table_virt,
             clear_frees,
             phantom: PhantomData,

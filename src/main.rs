@@ -13,12 +13,10 @@ use rmm::{
     PageMapper,
     PageTable,
     PhysicalAddress,
-    VirtualAddress,
 };
 
 use core::{
     marker::PhantomData,
-    mem,
 };
 
 pub fn format_size(size: usize) -> String {
