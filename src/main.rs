@@ -195,8 +195,7 @@ impl<A: Arch> SlabAllocator<A> {
 pub struct BuddyEntry {
     pub base: PhysicalAddress,
     pub size: usize,
-    pub map_phys: PhysicalAddress,
-    pub map_virt: VirtualAddress,
+    pub map: PhysicalAddress,
 }
 
 impl BuddyEntry {
@@ -204,10 +203,16 @@ impl BuddyEntry {
         Self {
             base: PhysicalAddress::new(0),
             size: 0,
-            map_phys: PhysicalAddress::new(0),
-            map_virt: VirtualAddress::new(0),
+            map: PhysicalAddress::new(0),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(packed)]
+pub struct BuddyMapFooter {
+    pub next: PhysicalAddress,
+    //TODO: index of last known free bit
 }
 
 pub struct BuddyAllocator<A> {
@@ -217,6 +222,9 @@ pub struct BuddyAllocator<A> {
 }
 
 impl<A: Arch> BuddyAllocator<A> {
+    const MAP_PAGE_BYTES: usize = (A::PAGE_SIZE - mem::size_of::<BuddyMapFooter>());
+    const MAP_PAGE_BITS: usize = Self::MAP_PAGE_BYTES * 8;
+
     pub unsafe fn new(areas: &'static [MemoryArea], offset: usize) -> Option<Self> {
         // First, we need an allocator, so we can allocate the buddy tables
         // Since the tables are static, we can use the bump allocator
@@ -267,7 +275,7 @@ impl<A: Arch> BuddyAllocator<A> {
 
         //TODO: sort areas?
 
-        //TODO: Allocate buddy maps
+        // Allocate buddy maps
         for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
             let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
             let mut entry = A::read::<BuddyEntry>(virt);
@@ -276,16 +284,50 @@ impl<A: Arch> BuddyAllocator<A> {
 
                 let pages = entry.size / A::PAGE_SIZE;
                 println!("  pages: {}", pages);
-                let map_size = (pages + 7) / 8;
-                println!("  map size: {}", format_size(map_size));
+                let map_pages = (pages + (Self::MAP_PAGE_BITS - 1)) / Self::MAP_PAGE_BITS;
+                println!("  map pages: {}", map_pages);
+
+                for _ in 0 .. map_pages {
+                    let map_phys = bump_allocator.allocate()?;
+                    let map_virt = A::phys_to_virt(map_phys);
+                    for i in 0..Self::MAP_PAGE_BYTES {
+                        A::write(map_virt.add(i), 0);
+                    }
+                    A::write(map_virt.add(Self::MAP_PAGE_BYTES), BuddyMapFooter {
+                        next: entry.map,
+                    });
+                    entry.map = map_phys;
+                }
             }
         }
 
-        //TODO: mark areas used for static tables as used
+        // Mark unused areas as free
+        let mut area_offset = bump_allocator.offset;
+        for area in areas.iter() {
+            if area_offset < area.size {
+                area_offset = 0;
+                let area_base = area.base.add(offset);
+                let area_size = area.size - offset;
+                allocator.free(area_base, area_size);
+            } else {
+                area_offset -= area.size;
+            }
+        }
 
         Some(allocator)
     }
 
+    pub unsafe fn free(&mut self, base: PhysicalAddress, size: usize) {
+        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
+            let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
+            let entry = A::read::<BuddyEntry>(virt);
+            if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
+                println!("{:X}:{:X} inside of {:X}:{:X}", base.data(), size, entry.base.data(), entry.size);
+
+                //TODO
+            }
+        }
+    }
 }
 
 pub struct Mapper<A> {
