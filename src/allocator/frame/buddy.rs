@@ -99,13 +99,8 @@ impl<A: Arch> BuddyAllocator<A> {
             let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
             let mut entry = A::read::<BuddyEntry>(virt);
             if entry.size > 0 {
-                println!("{}: {:X?}", i, entry);
-
                 let pages = entry.size / A::PAGE_SIZE;
-                println!("  pages: {}", pages);
                 let map_pages = (pages + (Self::MAP_PAGE_BITS - 1)) / Self::MAP_PAGE_BITS;
-                println!("  map pages: {}", map_pages);
-
                 for _ in 0 .. map_pages {
                     let map_phys = bump_allocator.allocate_one()?;
                     let map_virt = A::phys_to_virt(map_phys);
