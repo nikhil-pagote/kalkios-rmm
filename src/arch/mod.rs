@@ -55,6 +55,11 @@ pub trait Arch {
         ptr::write(address.data() as *mut T, value)
     }
 
+    #[inline(always)]
+    unsafe fn write_bytes(address: VirtualAddress, value: u8, count: usize) {
+        ptr::write_bytes(address.data() as *mut u8, value, count)
+    }
+
     unsafe fn invalidate(address: VirtualAddress);
 
     #[inline(always)]

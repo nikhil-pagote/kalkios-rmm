@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use crate::{
     Arch,
     FrameAllocator,
+    FrameCount,
     MemoryArea,
     PhysicalAddress,
 };
@@ -32,9 +33,9 @@ impl<A: Arch> BumpAllocator<A> {
 }
 
 impl<A: Arch> FrameAllocator for BumpAllocator<A> {
-    unsafe fn allocate(&mut self, count: usize) -> Option<PhysicalAddress> {
+    unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
         //TODO: support allocation of multiple pages
-        if count != 1 {
+        if count.data() != 1 {
             return None;
         }
 
@@ -49,7 +50,7 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
         None
     }
 
-    unsafe fn free(&mut self, _address: PhysicalAddress, _count: usize) {
+    unsafe fn free(&mut self, _address: PhysicalAddress, _count: FrameCount) {
         unimplemented!();
     }
 }

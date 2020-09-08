@@ -17,7 +17,7 @@ pub struct PageMapper<'f, A, F> {
 
 impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
     pub unsafe fn new(allocator: &'f mut F) -> Option<Self> {
-        let table_addr = allocator.allocate(1)?;
+        let table_addr = allocator.allocate_one()?;
         Some(Self {
             table_addr,
             allocator,
@@ -46,7 +46,7 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
                 let next = match next_opt {
                     Some(some) => some,
                     None => {
-                        let phys = self.allocator.allocate(1)?;
+                        let phys = self.allocator.allocate_one()?;
                         //TODO: correct flags?
                         table.set_entry(i, PageEntry::new(phys.data() | A::ENTRY_FLAG_WRITABLE | A::ENTRY_FLAG_PRESENT));
                         table.next(i)?

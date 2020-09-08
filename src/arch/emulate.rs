@@ -75,6 +75,11 @@ impl Arch for EmulateArch {
     }
 
     #[inline(always)]
+    unsafe fn write_bytes(address: VirtualAddress, value: u8, count: usize) {
+        MACHINE.as_mut().unwrap().write_bytes(address, value, count)
+    }
+
+    #[inline(always)]
     unsafe fn invalidate(address: VirtualAddress) {
         MACHINE.as_mut().unwrap().invalidate(address);
     }
@@ -149,6 +154,16 @@ impl<A: Arch> Machine<A> {
         }
     }
 
+    fn write_phys_bytes(&mut self, phys: PhysicalAddress, value: u8, count: usize) {
+        if phys.add(count).data() <= self.memory.len() {
+            unsafe {
+                ptr::write_bytes(self.memory.as_mut_ptr().add(phys.data()) as *mut u8, value, count);
+            }
+        } else {
+            panic!("write_phys_bytes: 0x{:X} count 0x{:X} outside of memory", phys.data(), count);
+        }
+    }
+
     fn translate(&self, virt: VirtualAddress) -> Option<(PhysicalAddress, usize)> {
         let virt_data = virt.data();
         let page = virt_data & A::PAGE_ADDRESS_MASK;
@@ -191,6 +206,24 @@ impl<A: Arch> Machine<A> {
             }
         } else {
             panic!("write: 0x{:X} size 0x{:X} not present", virt_data, size);
+        }
+    }
+
+    fn write_bytes(&mut self, virt: VirtualAddress, value: u8, count: usize) {
+        //TODO: allow writing past page boundaries
+        let virt_data = virt.data();
+        if (virt_data & A::PAGE_ADDRESS_MASK) != ((virt_data + (count - 1)) & A::PAGE_ADDRESS_MASK) {
+            panic!("write_bytes: 0x{:X} count 0x{:X} passes page boundary", virt_data, count);
+        }
+
+        if let Some((phys, flags)) = self.translate(virt) {
+            if flags & A::ENTRY_FLAG_WRITABLE != 0 {
+                self.write_phys_bytes(phys, value, count);
+            } else {
+                panic!("write_bytes: 0x{:X} count 0x{:X} not writable", virt_data, count);
+            }
+        } else {
+            panic!("write_bytes: 0x{:X} count 0x{:X} not present", virt_data, count);
         }
     }
 

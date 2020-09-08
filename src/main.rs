@@ -202,11 +202,12 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
 
     let mut allocator = BuddyAllocator::<A>::new(bump_allocator, true).unwrap();
     for i in 0..16 {
-        let phys_opt = allocator.allocate(4 * KILOBYTE);
-        println!("4 KB page {}: {:X?}", i, phys_opt);
+        let phys_opt = allocator.allocate_one();
+        println!("page {}: {:X?}", i, phys_opt);
         if i % 2 == 0 {
             if let Some(phys) = phys_opt {
-                allocator.free(phys, 4 * KILOBYTE);
+                println!("free {}: {:X?}", i, phys_opt);
+                allocator.free_one(phys);
             }
         }
     }

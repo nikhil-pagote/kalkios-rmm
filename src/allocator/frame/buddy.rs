@@ -7,6 +7,7 @@ use crate::{
     Arch,
     BumpAllocator,
     FrameAllocator,
+    FrameCount,
     PhysicalAddress,
     VirtualAddress,
 };
@@ -49,7 +50,7 @@ impl<A: Arch> BuddyAllocator<A> {
 
     pub unsafe fn new(mut bump_allocator: BumpAllocator<A>, clear_frees: bool) -> Option<Self> {
         // Allocate buddy table
-        let table_phys = bump_allocator.allocate(1)?;
+        let table_phys = bump_allocator.allocate_one()?;
         let table_virt = A::phys_to_virt(table_phys);
         for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
             let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
@@ -106,7 +107,7 @@ impl<A: Arch> BuddyAllocator<A> {
                 println!("  map pages: {}", map_pages);
 
                 for _ in 0 .. map_pages {
-                    let map_phys = bump_allocator.allocate(1)?;
+                    let map_phys = bump_allocator.allocate_one()?;
                     let map_virt = A::phys_to_virt(map_phys);
                     for i in 0..Self::MAP_PAGE_BYTES {
                         A::write(map_virt.add(i), 0);
@@ -127,7 +128,7 @@ impl<A: Arch> BuddyAllocator<A> {
             if area_offset < area.size {
                 let area_base = area.base.add(area_offset);
                 let area_size = area.size - area_offset;
-                allocator.free(area_base, area_size);
+                allocator.free(area_base, FrameCount::new(area_size / A::PAGE_SIZE));
                 area_offset = 0;
             } else {
                 area_offset -= area.size;
@@ -139,9 +140,9 @@ impl<A: Arch> BuddyAllocator<A> {
 }
 
 impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
-    unsafe fn allocate(&mut self, size: usize) -> Option<PhysicalAddress> {
+    unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
         //TODO: support other sizes
-        if size != A::PAGE_SIZE {
+        if count.data() != 1 {
             return None;
         }
 
@@ -177,27 +178,21 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
         None
     }
 
-    unsafe fn free(&mut self, base: PhysicalAddress, size: usize) {
-        if self.clear_frees {
-            // Zero freed pages for security, also ensures all allocs are zerod
-            //TODO: improve performance
-            //TODO: assumes linear physical mapping
-            let mut zero_virt = A::phys_to_virt(base);
-            let zero_end = zero_virt.add(size);
-            while zero_virt < zero_end {
-                A::write(zero_virt, 0usize);
-                zero_virt = zero_virt.add(mem::size_of::<usize>());
-            }
-        }
-
+    unsafe fn free(&mut self, base: PhysicalAddress, count: FrameCount) {
+        let size = count.data() * A::PAGE_SIZE;
         for i in 0 .. Self::BUDDY_ENTRIES {
             let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
             let entry = A::read::<BuddyEntry>(virt);
             if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
                 //TODO: Correct logic
-                let pages = size / A::PAGE_SIZE;
-                for page in 0 .. pages {
+                for page in 0 .. count.data() {
                     let page_base = base.add(page * A::PAGE_SIZE);
+
+                    if self.clear_frees {
+                        let page_virt = A::phys_to_virt(page_base);
+                        A::write_bytes(page_virt, 0, A::PAGE_SIZE);
+                    }
+
                     let index = (page_base.data() - entry.base.data()) / A::PAGE_SIZE;
                     let mut map_page = index / Self::MAP_PAGE_BITS;
                     let map_bit = index % Self::MAP_PAGE_BITS;
