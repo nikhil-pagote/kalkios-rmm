@@ -138,10 +138,10 @@ impl<A: Arch> SlabAllocator<A> {
         let mut area_offset = offset;
         for area in areas.iter() {
             if area_offset < area.size {
-                area_offset = 0;
-                let area_base = area.base.add(offset);
-                let area_size = area.size - offset;
+                let area_base = area.base.add(area_offset);
+                let area_size = area.size - area_offset;
                 allocator.free(area_base, area_size);
+                area_offset = 0;
             } else {
                 area_offset -= area.size;
             }
@@ -310,10 +310,10 @@ impl<A: Arch> BuddyAllocator<A> {
         let mut area_offset = bump_allocator.offset;
         for area in areas.iter() {
             if area_offset < area.size {
-                area_offset = 0;
-                let area_base = area.base.add(offset);
-                let area_size = area.size - offset;
+                let area_base = area.base.add(area_offset);
+                let area_size = area.size - area_offset;
                 allocator.free(area_base, area_size);
+                area_offset = 0;
             } else {
                 area_offset -= area.size;
             }
