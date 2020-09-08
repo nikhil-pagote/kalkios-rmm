@@ -42,8 +42,11 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
         let mut offset = self.offset;
         for area in self.areas.iter() {
             if offset < area.size {
+                let page_phys = area.base.add(offset);
+                let page_virt = A::phys_to_virt(page_phys);
+                A::write_bytes(page_virt, 0, A::PAGE_SIZE);
                 self.offset += A::PAGE_SIZE;
-                return Some(area.base.add(offset));
+                return Some(page_phys);
             }
             offset -= area.size;
         }

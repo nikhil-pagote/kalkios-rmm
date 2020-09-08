@@ -200,7 +200,7 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
     let offset = bump_allocator.offset();
     println!("Permanently used: {}", format_size(offset));
 
-    let mut allocator = BuddyAllocator::<A>::new(bump_allocator, true).unwrap();
+    let mut allocator = BuddyAllocator::<A>::new(bump_allocator).unwrap();
     for i in 0..16 {
         let phys_opt = allocator.allocate_one();
         println!("page {}: {:X?}", i, phys_opt);

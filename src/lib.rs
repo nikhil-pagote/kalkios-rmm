@@ -60,7 +60,7 @@ impl VirtualAddress {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct MemoryArea {
     pub base: PhysicalAddress,
     pub size: usize,

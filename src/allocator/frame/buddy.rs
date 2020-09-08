@@ -39,7 +39,6 @@ struct BuddyMapFooter {
 
 pub struct BuddyAllocator<A> {
     table_virt: VirtualAddress,
-    clear_frees: bool,
     phantom: PhantomData<A>,
 }
 
@@ -48,7 +47,7 @@ impl<A: Arch> BuddyAllocator<A> {
     const MAP_PAGE_BYTES: usize = (A::PAGE_SIZE - mem::size_of::<BuddyMapFooter>());
     const MAP_PAGE_BITS: usize = Self::MAP_PAGE_BYTES * 8;
 
-    pub unsafe fn new(mut bump_allocator: BumpAllocator<A>, clear_frees: bool) -> Option<Self> {
+    pub unsafe fn new(mut bump_allocator: BumpAllocator<A>) -> Option<Self> {
         // Allocate buddy table
         let table_phys = bump_allocator.allocate_one()?;
         let table_virt = A::phys_to_virt(table_phys);
@@ -59,7 +58,6 @@ impl<A: Arch> BuddyAllocator<A> {
 
         let mut allocator = Self {
             table_virt,
-            clear_frees,
             phantom: PhantomData,
         };
 
@@ -159,6 +157,8 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                                 value &= !(1 << bit);
                                 A::write(map_byte_virt, value);
                                 let page_phys = entry.base.add(offset + bit * A::PAGE_SIZE);
+                                let page_virt = A::phys_to_virt(page_phys);
+                                A::write_bytes(page_virt, 0, A::PAGE_SIZE);
                                 return Some(page_phys);
                             }
                         }
@@ -182,12 +182,6 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                 //TODO: Correct logic
                 for page in 0 .. count.data() {
                     let page_base = base.add(page * A::PAGE_SIZE);
-
-                    if self.clear_frees {
-                        let page_virt = A::phys_to_virt(page_base);
-                        A::write_bytes(page_virt, 0, A::PAGE_SIZE);
-                    }
-
                     let index = (page_base.data() - entry.base.data()) / A::PAGE_SIZE;
                     let mut map_page = index / Self::MAP_PAGE_BITS;
                     let map_bit = index % Self::MAP_PAGE_BITS;
