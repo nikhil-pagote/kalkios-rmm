@@ -2,13 +2,12 @@
 #![feature(asm)]
 
 pub use crate::{
+    allocator::*,
     arch::*,
-    page::{
-        PageEntry,
-        PageTable
-    },
+    page::*,
 };
 
+mod allocator;
 mod arch;
 mod page;
 
