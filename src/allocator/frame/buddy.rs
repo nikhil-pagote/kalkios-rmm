@@ -47,6 +47,13 @@ impl<A: Arch> BuddyAllocator<A> {
     const MAP_PAGE_BYTES: usize = (A::PAGE_SIZE - mem::size_of::<BuddyMapFooter>());
     const MAP_PAGE_BITS: usize = Self::MAP_PAGE_BYTES * 8;
 
+    pub const unsafe fn empty() -> Self {
+        Self {
+            table_virt: VirtualAddress::new(0),
+            phantom: PhantomData,
+        }
+    }
+
     pub unsafe fn new(mut bump_allocator: BumpAllocator<A>) -> Option<Self> {
         // Allocate buddy table
         let table_phys = bump_allocator.allocate_one()?;
@@ -132,7 +139,7 @@ impl<A: Arch> BuddyAllocator<A> {
 impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
     unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
         //TODO: support other sizes
-        if count.data() != 1 {
+        if self.table_virt.data() == 0 || count.data() != 1 {
             return None;
         }
 
@@ -171,6 +178,10 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
     }
 
     unsafe fn free(&mut self, base: PhysicalAddress, count: FrameCount) {
+        if self.table_virt.data() == 0 {
+            return;
+        }
+
         let size = count.data() * A::PAGE_SIZE;
         for i in 0 .. Self::BUDDY_ENTRIES {
             let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
