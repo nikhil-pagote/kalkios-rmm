@@ -326,7 +326,33 @@ impl<A: Arch> BuddyAllocator<A> {
             if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
                 println!("{:X}:{:X} inside of {:X}:{:X}", base.data(), size, entry.base.data(), entry.size);
 
-                //TODO
+                //TODO: Correct logic
+                let pages = size / A::PAGE_SIZE;
+                for page in 0 .. pages {
+                    let page_base = base.add(page * A::PAGE_SIZE);
+                    let index = (page_base.data() - entry.base.data()) / A::PAGE_SIZE;
+                    let mut map_page = index / Self::MAP_PAGE_BITS;
+                    let map_bit = index % Self::MAP_PAGE_BITS;
+                    println!("index {} => map_page {}, map_bit {}", index, map_page, map_bit);
+
+                    //TODO: improve performance
+                    let mut map_phys = entry.map;
+                    loop {
+                        if map_phys.data() == 0 { unimplemented!() }
+                        let map_virt = A::phys_to_virt(map_phys);
+                        if map_page == 0 {
+                            let map_byte_virt = map_virt.add(map_bit / 8);
+                            let mut value: u8 = A::read(map_byte_virt);
+                            value |= 1 << (map_bit % 8);
+                            A::write(map_byte_virt, value);
+                            return;
+                        } else {
+                            let footer = A::read::<BuddyMapFooter>(map_virt);
+                            map_phys = footer.next;
+                            map_page -= 1;
+                        }
+                    }
+                }
             }
         }
     }
