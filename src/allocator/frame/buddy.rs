@@ -102,9 +102,6 @@ impl<A: Arch> BuddyAllocator<A> {
                 for _ in 0 .. map_pages {
                     let map_phys = bump_allocator.allocate_one()?;
                     let map_virt = A::phys_to_virt(map_phys);
-                    for i in 0..Self::MAP_PAGE_BYTES {
-                        A::write(map_virt.add(i), 0);
-                    }
                     A::write(map_virt.add(Self::MAP_PAGE_BYTES), BuddyMapFooter {
                         next: entry.map,
                     });
