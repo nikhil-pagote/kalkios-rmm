@@ -10,6 +10,7 @@ use rmm::{
     FrameAllocator,
     MemoryArea,
     PageEntry,
+    PageFlushAll,
     PageMapper,
     PageTable,
     PhysicalAddress,
@@ -218,13 +219,16 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
     let mut mapper = PageMapper::<A, _>::current(
         &mut allocator
     );
+    let flush_all = PageFlushAll::new();
     for i in 0..16 {
         let virt = VirtualAddress::new(MEGABYTE + i * A::PAGE_SIZE);
         let flush = mapper.map(
             virt,
             A::ENTRY_FLAG_USER | A::ENTRY_FLAG_WRITABLE
         ).expect("failed to map page");
+        flush_all.consume(flush);
     }
+    flush_all.flush();
 }
 
 unsafe fn inner<A: Arch>() {
