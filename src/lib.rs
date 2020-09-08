@@ -61,6 +61,7 @@ impl VirtualAddress {
     }
 }
 
+#[derive(Debug)]
 pub struct MemoryArea {
     pub base: PhysicalAddress,
     pub size: usize,

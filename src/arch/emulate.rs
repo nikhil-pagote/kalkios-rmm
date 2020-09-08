@@ -96,11 +96,16 @@ impl Arch for EmulateArch {
 }
 
 const MEMORY_SIZE: usize = 64 * MEGABYTE;
-static MEMORY_AREAS: [MemoryArea; 1] = [
+static MEMORY_AREAS: [MemoryArea; 2] = [
     MemoryArea {
         base: PhysicalAddress::new(EmulateArch::PAGE_SIZE * 4), // Initial PML4, PDP, PD, and PT wasted
-        size: MEMORY_SIZE - EmulateArch::PAGE_SIZE * 4,
-    }
+        size: MEMORY_SIZE/2 - EmulateArch::PAGE_SIZE * 4,
+    },
+    // Second area for debugging
+    MemoryArea {
+        base: PhysicalAddress::new(MEMORY_SIZE/2),
+        size: MEMORY_SIZE/2,
+    },
 ];
 
 static mut MACHINE: Option<Machine<EmulateArch>> = None;

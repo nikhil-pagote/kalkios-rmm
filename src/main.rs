@@ -12,7 +12,10 @@ use rmm::{
     VirtualAddress,
 };
 
-use core::marker::PhantomData;
+use core::{
+    marker::PhantomData,
+    mem,
+};
 
 pub fn format_size(size: usize) -> String {
     if size >= 2 * TERABYTE {
@@ -187,6 +190,104 @@ impl<A: Arch> SlabAllocator<A> {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+#[repr(packed)]
+pub struct BuddyEntry {
+    pub base: PhysicalAddress,
+    pub size: usize,
+    pub map_phys: PhysicalAddress,
+    pub map_virt: VirtualAddress,
+}
+
+impl BuddyEntry {
+    pub fn empty() -> Self {
+        Self {
+            base: PhysicalAddress::new(0),
+            size: 0,
+            map_phys: PhysicalAddress::new(0),
+            map_virt: VirtualAddress::new(0),
+        }
+    }
+}
+
+pub struct BuddyAllocator<A> {
+    table_phys: PhysicalAddress,
+    table_virt: VirtualAddress,
+    phantom: PhantomData<A>,
+}
+
+impl<A: Arch> BuddyAllocator<A> {
+    pub unsafe fn new(areas: &'static [MemoryArea], offset: usize) -> Option<Self> {
+        // First, we need an allocator, so we can allocate the buddy tables
+        // Since the tables are static, we can use the bump allocator
+        let mut bump_allocator = BumpAllocator::<A>::new(areas, offset);
+
+        // Allocate buddy table
+        let table_phys = bump_allocator.allocate()?;
+        let table_virt = A::phys_to_virt(table_phys);
+        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
+            let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
+            A::write(virt, BuddyEntry::empty());
+        }
+
+        let mut allocator = Self {
+            table_phys,
+            table_virt,
+            phantom: PhantomData,
+        };
+
+        // Add areas to buddy table, combining areas when possible
+        for area in areas.iter() {
+            for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
+                let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
+                let mut entry = A::read::<BuddyEntry>(virt);
+                let inserted = if area.base.add(area.size) == entry.base {
+                    // Combine entry at start
+                    entry.base = area.base;
+                    entry.size += area.size;
+                    true
+                } else if area.base == entry.base.add(entry.size) {
+                    // Combine entry at end
+                    entry.size += area.size;
+                    true
+                } else if entry.size == 0 {
+                    // Create new entry
+                    entry.base = area.base;
+                    entry.size = area.size;
+                    true
+                } else {
+                    false
+                };
+                if inserted {
+                    A::write(virt, entry);
+                    break;
+                }
+            }
+        }
+
+        //TODO: sort areas?
+
+        //TODO: Allocate buddy maps
+        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
+            let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
+            let mut entry = A::read::<BuddyEntry>(virt);
+            if entry.size > 0 {
+                println!("{}: {:X?}", i, entry);
+
+                let pages = entry.size / A::PAGE_SIZE;
+                println!("  pages: {}", pages);
+                let map_size = (pages + 7) / 8;
+                println!("  map size: {}", format_size(map_size));
+            }
+        }
+
+        //TODO: mark areas used for static tables as used
+
+        Some(allocator)
+    }
+
+}
+
 pub struct Mapper<A> {
     table_addr: PhysicalAddress,
     allocator: BumpAllocator<A>,
@@ -262,27 +363,27 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
     let offset = mapper.allocator.offset;
     println!("Permanently used: {}", format_size(offset));
 
-    let mut allocator = SlabAllocator::<A>::new(areas, offset);
-    for i in 0..16 {
-        let phys_opt = allocator.allocate(4 * KILOBYTE);
-        println!("4 KB page {}: {:X?}", i, phys_opt);
-        if i % 2 == 0 {
-            if let Some(phys) = phys_opt {
-                allocator.free(phys, 4 * KILOBYTE);
-            }
-        }
-    }
-    for i in 0..16 {
-        let phys_opt = allocator.allocate(2 * MEGABYTE);
-        println!("2 MB page {}: {:X?}", i, phys_opt);
-        if i % 2 == 0 {
-            if let Some(phys) = phys_opt {
-                allocator.free(phys, 2 * MEGABYTE);
-            }
-        }
-    }
-
-    println!("Remaining: {}", format_size(allocator.remaining()));
+    let mut allocator = BuddyAllocator::<A>::new(areas, offset);
+    // for i in 0..16 {
+    //     let phys_opt = allocator.allocate(4 * KILOBYTE);
+    //     println!("4 KB page {}: {:X?}", i, phys_opt);
+    //     if i % 2 == 0 {
+    //         if let Some(phys) = phys_opt {
+    //             allocator.free(phys, 4 * KILOBYTE);
+    //         }
+    //     }
+    // }
+    // for i in 0..16 {
+    //     let phys_opt = allocator.allocate(2 * MEGABYTE);
+    //     println!("2 MB page {}: {:X?}", i, phys_opt);
+    //     if i % 2 == 0 {
+    //         if let Some(phys) = phys_opt {
+    //             allocator.free(phys, 2 * MEGABYTE);
+    //         }
+    //     }
+    // }
+    //
+    // println!("Remaining: {}", format_size(allocator.remaining()));
 }
 
 unsafe fn inner<A: Arch>() {
