@@ -6,8 +6,13 @@ use crate::{
     VirtualAddress,
 };
 
-pub mod emulate;
-pub mod x86_64;
+#[cfg(feature = "std")]
+pub use self::emulate::EmulateArch;
+pub use self::x86_64::X8664Arch;
+
+#[cfg(feature = "std")]
+mod emulate;
+mod x86_64;
 
 pub trait Arch {
     const PAGE_SHIFT: usize;

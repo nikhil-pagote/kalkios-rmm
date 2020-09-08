@@ -1,8 +1,8 @@
+#![cfg_attr(not(feature = "std"), no_std)]
 #![feature(asm)]
 
 pub use crate::{
-    arch::Arch,
-    arch::emulate::*,
+    arch::*,
     page::{
         PageEntry,
         PageTable
