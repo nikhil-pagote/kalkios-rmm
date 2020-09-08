@@ -53,10 +53,10 @@ pub struct BumpAllocator<A> {
 }
 
 impl<A: Arch> BumpAllocator<A> {
-    pub fn new(areas: &'static [MemoryArea]) -> Self {
+    pub fn new(areas: &'static [MemoryArea], offset: usize) -> Self {
         Self {
             areas,
-            offset: 0,
+            offset,
             phantom: PhantomData,
         }
     }
@@ -71,6 +71,119 @@ impl<A: Arch> BumpAllocator<A> {
             offset -= area.size;
         }
         None
+    }
+}
+
+pub struct SlabNode<A> {
+    next: PhysicalAddress,
+    count: usize,
+    phantom: PhantomData<A>,
+}
+
+impl<A: Arch> SlabNode<A> {
+    pub fn new(next: PhysicalAddress, count: usize) -> Self {
+        Self {
+            next,
+            count,
+            phantom: PhantomData,
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self::new(PhysicalAddress::new(0), 0)
+    }
+
+    pub unsafe fn insert(&mut self, phys: PhysicalAddress) {
+        let virt = A::phys_to_virt(phys);
+        A::write(virt, self.next);
+        self.next = phys;
+        self.count += 1;
+    }
+
+    pub unsafe fn remove(&mut self) -> Option<PhysicalAddress> {
+        if self.count > 0 {
+            let phys = self.next;
+            let virt = A::phys_to_virt(phys);
+            self.next = A::read(virt);
+            self.count -= 1;
+            Some(phys)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct SlabAllocator<A> {
+    //TODO: Allow allocations up to maximum pageable size
+    nodes: [SlabNode<A>; 4],
+    phantom: PhantomData<A>,
+}
+
+impl<A: Arch> SlabAllocator<A> {
+    pub unsafe fn new(areas: &'static [MemoryArea], offset: usize) -> Self {
+        let mut allocator = Self {
+            nodes: [
+                SlabNode::empty(),
+                SlabNode::empty(),
+                SlabNode::empty(),
+                SlabNode::empty(),
+            ],
+            phantom: PhantomData,
+        };
+
+        // Add unused areas to free lists
+        let mut area_offset = offset;
+        for area in areas.iter() {
+            if area_offset < area.size {
+                area_offset = 0;
+                let area_base = area.base.add(offset);
+                let area_size = area.size - offset;
+                allocator.free(area_base, area_size);
+            } else {
+                area_offset -= area.size;
+            }
+        }
+
+        allocator
+    }
+
+    pub unsafe fn allocate(&mut self, size: usize) -> Option<PhysicalAddress> {
+        for level in 0..A::PAGE_LEVELS - 1 {
+            let level_shift = level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT;
+            let level_size = 1 << level_shift;
+            if size <= level_size {
+                if let Some(base) = self.nodes[level].remove() {
+                    self.free(base.add(size), level_size - size);
+                    return Some(base);
+                }
+            }
+        }
+        None
+    }
+
+    //TODO: This causes fragmentation, since neighbors are not identified
+    //TODO: remainders less than PAGE_SIZE will be lost
+    pub unsafe fn free(&mut self, mut base: PhysicalAddress, mut size: usize) {
+        for level in (0..A::PAGE_LEVELS - 1).rev() {
+            let level_shift = level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT;
+            let level_size = 1 << level_shift;
+            while size >= level_size {
+                println!("Add {:X} {}", base.data(), format_size(level_size));
+                self.nodes[level].insert(base);
+                base = base.add(level_size);
+                size -= level_size;
+            }
+        }
+    }
+
+    pub unsafe fn remaining(&mut self) -> usize {
+        let mut remaining = 0;
+        for level in (0..A::PAGE_LEVELS - 1).rev() {
+            let level_shift = level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT;
+            let level_size = 1 << level_shift;
+            remaining += self.nodes[level].count * level_size;
+        }
+        remaining
     }
 }
 
@@ -127,7 +240,7 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
     println!("Memory: {}", format_size(size));
 
     // Create a basic allocator for the first pages
-    let allocator = BumpAllocator::<A>::new(areas);
+    let allocator = BumpAllocator::<A>::new(areas, 0);
 
     // Map all physical areas at PHYS_OFFSET
     let mut mapper = Mapper::new(allocator).expect("failed to create Mapper");
@@ -142,10 +255,34 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
         }
     }
 
+    // Use the new table
     A::set_table(mapper.table_addr);
 
-    let used = mapper.allocator.offset;
-    println!("Used: {}", format_size(used));
+    // Create the physical memory map
+    let offset = mapper.allocator.offset;
+    println!("Permanently used: {}", format_size(offset));
+
+    let mut allocator = SlabAllocator::<A>::new(areas, offset);
+    for i in 0..16 {
+        let phys_opt = allocator.allocate(4 * KILOBYTE);
+        println!("4 KB page {}: {:X?}", i, phys_opt);
+        if i % 2 == 0 {
+            if let Some(phys) = phys_opt {
+                allocator.free(phys, 4 * KILOBYTE);
+            }
+        }
+    }
+    for i in 0..16 {
+        let phys_opt = allocator.allocate(2 * MEGABYTE);
+        println!("2 MB page {}: {:X?}", i, phys_opt);
+        if i % 2 == 0 {
+            if let Some(phys) = phys_opt {
+                allocator.free(phys, 2 * MEGABYTE);
+            }
+        }
+    }
+
+    println!("Remaining: {}", format_size(allocator.remaining()));
 }
 
 unsafe fn inner<A: Arch>() {

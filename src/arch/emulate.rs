@@ -226,7 +226,6 @@ impl<A: Arch> Machine<A> {
                         if f & A::ENTRY_FLAG_PRESENT == 0 { continue; }
 
                         // Page
-                        let a = e & A::ENTRY_ADDRESS_MASK;
                         let page =
                             (i4 << 39) |
                             (i3 << 30) |
