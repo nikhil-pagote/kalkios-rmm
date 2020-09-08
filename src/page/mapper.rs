@@ -29,12 +29,16 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
         A::set_table(self.table_addr);
     }
 
-    pub unsafe fn map(&mut self, virt: VirtualAddress, entry: PageEntry<A>) -> Option<()> {
-        let mut table = PageTable::new(
+    pub unsafe fn table(&self) -> PageTable<A> {
+        PageTable::new(
             VirtualAddress::new(0),
             self.table_addr,
             A::PAGE_LEVELS - 1
-        );
+        )
+    }
+
+    pub unsafe fn map(&mut self, virt: VirtualAddress, entry: PageEntry<A>) -> Option<()> {
+        let mut table = self.table();
         loop {
             let i = table.index_of(virt)?;
             if table.level() == 0 {
