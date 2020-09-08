@@ -298,6 +298,8 @@ impl<A: Arch> BuddyAllocator<A> {
                     });
                     entry.map = map_phys;
                 }
+                
+                A::write(virt, entry);
             }
         }
 
