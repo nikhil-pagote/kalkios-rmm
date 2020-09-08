@@ -13,6 +13,7 @@ use rmm::{
     PageMapper,
     PageTable,
     PhysicalAddress,
+    VirtualAddress,
 };
 
 use core::{
@@ -178,17 +179,19 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
 
     {
         // Map all physical areas at PHYS_OFFSET
-        let mut mapper = PageMapper::<A, _>::new(
+        let mut mapper = PageMapper::<A, _>::create(
             &mut bump_allocator
         ).expect("failed to create Mapper");
         for area in areas.iter() {
             for i in 0..area.size / A::PAGE_SIZE {
                 let phys = area.base.add(i * A::PAGE_SIZE);
                 let virt = A::phys_to_virt(phys);
-                mapper.map(
+                let flush = mapper.map_phys(
                     virt,
-                    PageEntry::new(phys.data() | A::ENTRY_FLAG_WRITABLE | A::ENTRY_FLAG_PRESENT)
-                ).expect("failed to map frame");
+                    phys,
+                    A::ENTRY_FLAG_WRITABLE
+                ).expect("failed to map page to frame");
+                flush.ignore(); // Not the active table
             }
         }
 
@@ -211,17 +214,17 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
             }
         }
     }
-    // for i in 0..16 {
-    //     let phys_opt = allocator.allocate(2 * MEGABYTE);
-    //     println!("2 MB page {}: {:X?}", i, phys_opt);
-    //     if i % 2 == 0 {
-    //         if let Some(phys) = phys_opt {
-    //             allocator.free(phys, 2 * MEGABYTE);
-    //         }
-    //     }
-    // }
-    //
-    // println!("Remaining: {}", format_size(allocator.remaining()));
+
+    let mut mapper = PageMapper::<A, _>::current(
+        &mut allocator
+    );
+    for i in 0..16 {
+        let virt = VirtualAddress::new(MEGABYTE + i * A::PAGE_SIZE);
+        let flush = mapper.map(
+            virt,
+            A::ENTRY_FLAG_USER | A::ENTRY_FLAG_WRITABLE
+        ).expect("failed to map page");
+    }
 }
 
 unsafe fn inner<A: Arch>() {

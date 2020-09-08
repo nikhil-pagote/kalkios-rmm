@@ -1,9 +1,11 @@
 pub use self::{
-    entry::PageEntry,
-    mapper::PageMapper,
-    table::PageTable,
+    entry::*,
+    flush::*,
+    mapper::*,
+    table::*,
 };
 
 mod entry;
+mod flush;
 mod mapper;
 mod table;
