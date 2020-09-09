@@ -47,13 +47,6 @@ impl<A: Arch> BuddyAllocator<A> {
     const MAP_PAGE_BYTES: usize = (A::PAGE_SIZE - mem::size_of::<BuddyMapFooter>());
     const MAP_PAGE_BITS: usize = Self::MAP_PAGE_BYTES * 8;
 
-    pub const unsafe fn empty() -> Self {
-        Self {
-            table_virt: VirtualAddress::new(0),
-            phantom: PhantomData,
-        }
-    }
-
     pub unsafe fn new(mut bump_allocator: BumpAllocator<A>) -> Option<Self> {
         // Allocate buddy table
         let table_phys = bump_allocator.allocate_one()?;
