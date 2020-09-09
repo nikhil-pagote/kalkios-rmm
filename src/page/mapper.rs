@@ -78,4 +78,27 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
             }
         }
     }
+
+    pub unsafe fn unmap(&mut self, virt: VirtualAddress) -> Option<PageFlush<A>> {
+        let (old, flush) = self.unmap_phys(virt)?;
+        self.allocator.free_one(old.address());
+        Some(flush)
+    }
+
+    pub unsafe fn unmap_phys(&mut self, virt: VirtualAddress) -> Option<(PageEntry<A>, PageFlush<A>)> {
+        //TODO: verify virt is aligned
+        let mut table = self.table();
+        //TODO: unmap parents
+        loop {
+            let i = table.index_of(virt)?;
+            if table.level() == 0 {
+                let entry_opt = table.entry(i);
+                table.set_entry(i, PageEntry::new(0));
+                let entry = entry_opt?;
+                return Some((entry, PageFlush::new(virt)));
+            } else {
+                table = table.next(i)?;
+            }
+        }
+    }
 }

@@ -228,6 +228,16 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
         flush_all.consume(flush);
     }
     flush_all.flush();
+
+    let flush_all = PageFlushAll::new();
+    for i in 0..16 {
+        let virt = VirtualAddress::new(MEGABYTE + i * A::PAGE_SIZE);
+        let flush = mapper.unmap(
+            virt,
+        ).expect("failed to unmap page");
+        flush_all.consume(flush);
+    }
+    flush_all.flush();
 }
 
 unsafe fn inner<A: Arch>() {
