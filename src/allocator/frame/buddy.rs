@@ -131,40 +131,95 @@ impl<A: Arch> BuddyAllocator<A> {
 
 impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
     unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
-        //TODO: support other sizes
-        if self.table_virt.data() == 0 || count.data() != 1 {
+        if self.table_virt.data() == 0 {
             return None;
         }
 
-        for i in 0 .. Self::BUDDY_ENTRIES {
-            let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
+        for entry_i in 0 .. Self::BUDDY_ENTRIES {
+            let virt = self.table_virt.add(entry_i * mem::size_of::<BuddyEntry>());
             let entry = A::read::<BuddyEntry>(virt);
 
+            let mut start_map_phys = entry.map;
+            let mut start_offset = 0;
+            let mut start_i = 0;
+            let mut start_bit = 0;
+            let mut start_page_phys = PhysicalAddress::new(0);
+            let mut found = 0;
+
             //TODO: improve performance
-            let mut map_phys = entry.map;
-            let mut offset = 0;
-            while map_phys.data() != 0 {
+            let mut map_phys = start_map_phys;
+            let mut offset = start_offset;
+            'find: while map_phys.data() != 0 {
                 let map_virt = A::phys_to_virt(map_phys);
                 for i in 0 .. Self::MAP_PAGE_BYTES {
                     let map_byte_virt = map_virt.add(i);
-                    let mut value: u8 = A::read(map_byte_virt);
+                    let value: u8 = A::read(map_byte_virt);
                     if (value & u8::MAX) != 0 {
                         for bit in 0..8 {
                             if (value & (1 << bit)) != 0 {
-                                value &= !(1 << bit);
-                                A::write(map_byte_virt, value);
-                                let page_phys = entry.base.add(offset + bit * A::PAGE_SIZE);
-                                let page_virt = A::phys_to_virt(page_phys);
-                                A::write_bytes(page_virt, 0, A::PAGE_SIZE);
-                                return Some(page_phys);
+                                if found == 0 {
+                                    start_map_phys = map_phys;
+                                    start_offset = offset;
+                                    start_i = i;
+                                    start_bit = bit;
+                                    start_page_phys = entry.base.add(offset + bit * A::PAGE_SIZE);
+                                }
+                                found += 1;
+                                if found == count.data() {
+                                    break 'find;
+                                }
+                            } else {
+                                found = 0;
                             }
                         }
+                    } else {
+                        found = 0;
                     }
                     offset += A::PAGE_SIZE * 8;
                 }
 
                 let footer = A::read::<BuddyMapFooter>(map_virt.add(Self::MAP_PAGE_BYTES));
                 map_phys = footer.next;
+            }
+
+            if found == count.data() {
+                map_phys = start_map_phys;
+                offset = start_offset;
+                found = 0;
+                while map_phys.data() != 0 {
+                    let map_virt = A::phys_to_virt(map_phys);
+                    for i in start_i .. Self::MAP_PAGE_BYTES {
+                        let map_byte_virt = map_virt.add(i);
+                        let mut value: u8 = A::read(map_byte_virt);
+                        if (value & u8::MAX) != 0 {
+                            for bit in start_bit..8 {
+                                if (value & (1 << bit)) != 0 {
+                                    value &= !(1 << bit);
+                                    A::write(map_byte_virt, value);
+
+                                    let page_phys = entry.base.add(offset + bit * A::PAGE_SIZE);
+                                    let page_virt = A::phys_to_virt(page_phys);
+                                    A::write_bytes(page_virt, 0, A::PAGE_SIZE);
+
+                                    found += 1;
+                                    if found == count.data() {
+                                        return Some(start_page_phys);
+                                    }
+                                } else {
+                                    panic!("check your logic, bit was set");
+                                }
+                            }
+                            start_bit = 0;
+                        } else {
+                            panic!("check your logic, byte was set");
+                        }
+                        offset += A::PAGE_SIZE * 8;
+                    }
+                    start_i = 0;
+
+                    let footer = A::read::<BuddyMapFooter>(map_virt.add(Self::MAP_PAGE_BYTES));
+                    map_phys = footer.next;
+                }
             }
         }
         None
