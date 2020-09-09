@@ -228,7 +228,7 @@ impl<A: Arch> Machine<A> {
     }
 
     fn invalidate(&mut self, _address: VirtualAddress) {
-        unimplemented!();
+        unimplemented!("EmulateArch::invalidate not implemented");
     }
 
     //TODO: cleanup

@@ -23,7 +23,7 @@ impl Arch for X8664Arch {
     const PHYS_OFFSET: usize = Self::PAGE_NEGATIVE_MASK + (Self::PAGE_ADDRESS_SIZE >> 1); // PML4 slot 256 and onwards
 
     unsafe fn init() -> &'static [MemoryArea] {
-        unimplemented!()
+        unimplemented!("X8664Arch::init unimplemented");
     }
 
     #[inline(always)]

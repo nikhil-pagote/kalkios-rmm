@@ -54,6 +54,6 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
     }
 
     unsafe fn free(&mut self, _address: PhysicalAddress, _count: FrameCount) {
-        unimplemented!();
+        unimplemented!("BumpAllocator::free not implemented");
     }
 }

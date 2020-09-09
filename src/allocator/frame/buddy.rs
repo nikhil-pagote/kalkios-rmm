@@ -190,7 +190,7 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                     //TODO: improve performance
                     let mut map_phys = entry.map;
                     loop {
-                        if map_phys.data() == 0 { unimplemented!() }
+                        if map_phys.data() == 0 { unimplemented!("map_phys.data() == 0") }
                         let map_virt = A::phys_to_virt(map_phys);
                         if map_page == 0 {
                             let map_byte_virt = map_virt.add(map_bit / 8);
