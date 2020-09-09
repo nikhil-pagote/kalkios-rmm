@@ -8,6 +8,7 @@ use rmm::{
     BumpAllocator,
     EmulateArch,
     FrameAllocator,
+    FrameCount,
     MemoryArea,
     PageFlushAll,
     PageMapper,
@@ -204,13 +205,27 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
     println!("Permanently used: {}", format_size(offset));
 
     let mut allocator = BuddyAllocator::<A>::new(bump_allocator).unwrap();
+
     for i in 0..16 {
-        let phys_opt = allocator.allocate_one();
-        println!("page {}: {:X?}", i, phys_opt);
-        if i % 2 == 0 {
-            if let Some(phys) = phys_opt {
-                println!("free {}: {:X?}", i, phys_opt);
-                allocator.free_one(phys);
+        {
+            let phys_opt = allocator.allocate_one();
+            println!("page {}: {:X?}", i, phys_opt);
+            if i % 3 == 0 {
+                if let Some(phys) = phys_opt {
+                    println!("free {}: {:X?}", i, phys_opt);
+                    allocator.free_one(phys);
+                }
+            }
+        }
+
+        {
+            let phys_opt = allocator.allocate(FrameCount::new(16));
+            println!("page*16 {}: {:X?}", i, phys_opt);
+            if i % 2 == 0 {
+                if let Some(phys) = phys_opt {
+                    println!("free*16 {}: {:X?}", i, phys_opt);
+                    allocator.free(phys, FrameCount::new(16));
+                }
             }
         }
     }
