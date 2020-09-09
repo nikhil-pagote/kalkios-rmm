@@ -163,7 +163,7 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                     offset += A::PAGE_SIZE * 8;
                 }
 
-                let footer = A::read::<BuddyMapFooter>(map_virt);
+                let footer = A::read::<BuddyMapFooter>(map_virt.add(Self::MAP_PAGE_BYTES));
                 map_phys = footer.next;
             }
         }
@@ -199,7 +199,7 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                             A::write(map_byte_virt, value);
                             break;
                         } else {
-                            let footer = A::read::<BuddyMapFooter>(map_virt);
+                            let footer = A::read::<BuddyMapFooter>(map_virt.add(Self::MAP_PAGE_BYTES));
                             map_phys = footer.next;
                             map_page -= 1;
                         }
