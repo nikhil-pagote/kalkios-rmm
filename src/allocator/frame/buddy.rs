@@ -34,7 +34,7 @@ impl BuddyEntry {
 #[repr(packed)]
 struct BuddyMapFooter {
     next: PhysicalAddress,
-    //TODO: index of last known free bit
+    skip: usize,
 }
 
 pub struct BuddyAllocator<A> {
@@ -104,6 +104,7 @@ impl<A: Arch> BuddyAllocator<A> {
                     let map_virt = A::phys_to_virt(map_phys);
                     A::write(map_virt.add(Self::MAP_PAGE_BYTES), BuddyMapFooter {
                         next: entry.map,
+                        skip: Self::MAP_PAGE_BYTES,
                     });
                     entry.map = map_phys;
                 }
@@ -151,7 +152,11 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
             let mut offset = start_offset;
             'find: while map_phys.data() != 0 {
                 let map_virt = A::phys_to_virt(map_phys);
-                for i in 0 .. Self::MAP_PAGE_BYTES {
+                let footer_virt = map_virt.add(Self::MAP_PAGE_BYTES);
+                let mut footer = A::read::<BuddyMapFooter>(footer_virt);
+                offset += footer.skip * A::PAGE_SIZE * 8;
+
+                for i in footer.skip .. Self::MAP_PAGE_BYTES {
                     let map_byte_virt = map_virt.add(i);
                     let value: u8 = A::read(map_byte_virt);
                     if (value & u8::MAX) != 0 {
@@ -166,19 +171,31 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                                 }
                                 found += 1;
                                 if found == count.data() {
+                                    // If skip is set to the start of the newly allocated frames
+                                    if footer.skip == start_i && footer.skip != i {
+                                        // Set it to the end of the newly allocated frames
+                                        footer.skip = i;
+                                        A::write(footer_virt, footer);
+                                    }
                                     break 'find;
                                 }
                             } else {
                                 found = 0;
                             }
                         }
+
                     } else {
+                        // If skip is set to the current 8 frames, and they are already used
+                        if footer.skip == i {
+                            // Set skip to the next current frame
+                            footer.skip = i + 1;
+                            A::write(footer_virt, footer);
+                        }
                         found = 0;
                     }
                     offset += A::PAGE_SIZE * 8;
                 }
 
-                let footer = A::read::<BuddyMapFooter>(map_virt.add(Self::MAP_PAGE_BYTES));
                 map_phys = footer.next;
             }
 
@@ -217,7 +234,8 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                     }
                     start_i = 0;
 
-                    let footer = A::read::<BuddyMapFooter>(map_virt.add(Self::MAP_PAGE_BYTES));
+                    let footer_virt = map_virt.add(Self::MAP_PAGE_BYTES);
+                    let footer = A::read::<BuddyMapFooter>(footer_virt);
                     map_phys = footer.next;
                 }
             }
@@ -247,14 +265,20 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                     loop {
                         if map_phys.data() == 0 { unimplemented!("map_phys.data() == 0") }
                         let map_virt = A::phys_to_virt(map_phys);
+                        let footer_virt = map_virt.add(Self::MAP_PAGE_BYTES);
+                        let mut footer = A::read::<BuddyMapFooter>(footer_virt);
                         if map_page == 0 {
-                            let map_byte_virt = map_virt.add(map_bit / 8);
+                            let map_byte = map_bit / 8;
+                            if map_byte < footer.skip {
+                                footer.skip = map_byte;
+                                A::write(footer_virt, footer);
+                            }
+                            let map_byte_virt = map_virt.add(map_byte);
                             let mut value: u8 = A::read(map_byte_virt);
                             value |= 1 << (map_bit % 8);
                             A::write(map_byte_virt, value);
                             break;
                         } else {
-                            let footer = A::read::<BuddyMapFooter>(map_virt.add(Self::MAP_PAGE_BYTES));
                             map_phys = footer.next;
                             map_page -= 1;
                         }
