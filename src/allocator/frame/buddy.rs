@@ -12,29 +12,61 @@ use crate::{
     VirtualAddress,
 };
 
+#[repr(transparent)]
+struct BuddyUsage(u8);
+
 #[derive(Clone, Copy, Debug)]
 #[repr(packed)]
-struct BuddyEntry {
+struct BuddyEntry<A> {
     base: PhysicalAddress,
     size: usize,
-    map: PhysicalAddress,
+    // Number of first free page
+    skip: usize,
+    // Count of used pages
+    used: usize,
+    phantom: PhantomData<A>,
 }
 
-impl BuddyEntry {
-    pub fn empty() -> Self {
+impl<A: Arch> BuddyEntry<A> {
+    fn empty() -> Self {
         Self {
             base: PhysicalAddress::new(0),
             size: 0,
-            map: PhysicalAddress::new(0),
+            skip: 0,
+            used: 0,
+            phantom: PhantomData,
         }
     }
-}
 
-#[derive(Clone, Copy, Debug)]
-#[repr(packed)]
-struct BuddyMapFooter {
-    next: PhysicalAddress,
-    skip: usize,
+    #[inline(always)]
+    fn pages(&self) -> usize {
+        self.size >> A::PAGE_SHIFT
+    }
+
+    fn usage_pages(&self) -> usize {
+        let bytes = self.pages() * mem::size_of::<BuddyUsage>();
+        // Round bytes used for usage to next page
+        (bytes + A::PAGE_OFFSET_MASK) >> A::PAGE_SHIFT
+    }
+
+    unsafe fn usage_addr(&self, page: usize) -> Option<VirtualAddress> {
+        if page < self.pages() {
+            let phys = self.base.add(page * mem::size_of::<BuddyUsage>());
+            Some(A::phys_to_virt(phys))
+        } else {
+            None
+        }
+    }
+
+    unsafe fn usage(&self, page: usize) -> Option<BuddyUsage> {
+        let addr = self.usage_addr(page)?;
+        Some(A::read(addr))
+    }
+
+    unsafe fn set_usage(&self, page: usize, usage: BuddyUsage) -> Option<()> {
+        let addr = self.usage_addr(page)?;
+        Some(A::write(addr, usage))
+    }
 }
 
 pub struct BuddyAllocator<A> {
@@ -43,17 +75,15 @@ pub struct BuddyAllocator<A> {
 }
 
 impl<A: Arch> BuddyAllocator<A> {
-    const BUDDY_ENTRIES: usize = A::PAGE_SIZE / mem::size_of::<BuddyEntry>();
-    const MAP_PAGE_BYTES: usize = (A::PAGE_SIZE - mem::size_of::<BuddyMapFooter>());
-    const MAP_PAGE_BITS: usize = Self::MAP_PAGE_BYTES * 8;
+    const BUDDY_ENTRIES: usize = A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>();
 
     pub unsafe fn new(mut bump_allocator: BumpAllocator<A>) -> Option<Self> {
         // Allocate buddy table
         let table_phys = bump_allocator.allocate_one()?;
         let table_virt = A::phys_to_virt(table_phys);
-        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
-            let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
-            A::write(virt, BuddyEntry::empty());
+        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>()) {
+            let virt = table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
+            A::write(virt, BuddyEntry::<A>::empty());
         }
 
         let mut allocator = Self {
@@ -61,11 +91,22 @@ impl<A: Arch> BuddyAllocator<A> {
             phantom: PhantomData,
         };
 
-        // Add areas to buddy table, combining areas when possible
-        for area in bump_allocator.areas().iter() {
-            for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry>()) {
-                let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
-                let mut entry = A::read::<BuddyEntry>(virt);
+        // Add areas to buddy table, combining areas when possible, and skipping frames used
+        // by the bump allocator
+        let mut offset = bump_allocator.offset();
+        for old_area in bump_allocator.areas().iter() {
+            let mut area = old_area.clone();
+            if offset >= area.size {
+                offset -= area.size;
+                continue;
+            } else if offset > 0 {
+                area.base = area.base.add(offset);
+                area.size -= offset;
+                offset = 0;
+            }
+            for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>()) {
+                let virt = table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
+                let mut entry = A::read::<BuddyEntry<A>>(virt);
                 let inserted = if area.base.add(area.size) == entry.base {
                     // Combine entry at start
                     entry.base = area.base;
@@ -94,36 +135,32 @@ impl<A: Arch> BuddyAllocator<A> {
 
         // Allocate buddy maps
         for i in 0 .. Self::BUDDY_ENTRIES {
-            let virt = table_virt.add(i * mem::size_of::<BuddyEntry>());
-            let mut entry = A::read::<BuddyEntry>(virt);
-            if entry.size > 0 {
-                let pages = entry.size / A::PAGE_SIZE;
-                let map_pages = (pages + (Self::MAP_PAGE_BITS - 1)) / Self::MAP_PAGE_BITS;
-                for _ in 0 .. map_pages {
-                    let map_phys = bump_allocator.allocate_one()?;
-                    let map_virt = A::phys_to_virt(map_phys);
-                    A::write(map_virt.add(Self::MAP_PAGE_BYTES), BuddyMapFooter {
-                        next: entry.map,
-                        skip: Self::MAP_PAGE_BYTES,
-                    });
-                    entry.map = map_phys;
+            let virt = table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
+            let mut entry = A::read::<BuddyEntry<A>>(virt);
+
+            // Only set up entries that have enough space for their own usage map
+            let usage_pages = entry.usage_pages();
+            if entry.pages() > usage_pages {
+                // Mark all usage bytes as unused
+                let usage_start = entry.usage_addr(0)?;
+                for page in 0..usage_pages {
+                    A::write_bytes(usage_start.add(page << A::PAGE_SHIFT), 0, A::PAGE_SIZE);
                 }
 
-                A::write(virt, entry);
+                // Mark bytes used for usage as used
+                for page in 0..usage_pages {
+                    entry.set_usage(page, BuddyUsage(1))?;
+                }
             }
-        }
 
-        // Mark unused areas as free
-        let mut area_offset = bump_allocator.offset();
-        for area in bump_allocator.areas().iter() {
-            if area_offset < area.size {
-                let area_base = area.base.add(area_offset);
-                let area_size = area.size - area_offset;
-                allocator.free(area_base, FrameCount::new(area_size / A::PAGE_SIZE));
-                area_offset = 0;
-            } else {
-                area_offset -= area.size;
-            }
+            // Skip the pages used for usage
+            entry.skip = usage_pages;
+
+            // Set used pages to pages used for usage
+            entry.used = usage_pages;
+
+            // Write updated entry
+            A::write(virt, entry);
         }
 
         Some(allocator)
@@ -137,109 +174,53 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
         }
 
         for entry_i in 0 .. Self::BUDDY_ENTRIES {
-            let virt = self.table_virt.add(entry_i * mem::size_of::<BuddyEntry>());
-            let entry = A::read::<BuddyEntry>(virt);
+            let virt = self.table_virt.add(entry_i * mem::size_of::<BuddyEntry<A>>());
+            let mut entry = A::read::<BuddyEntry<A>>(virt);
 
-            let mut start_map_phys = entry.map;
-            let mut start_offset = 0;
-            let mut start_i = 0;
-            let mut start_bit = 0;
-            let mut start_page_phys = PhysicalAddress::new(0);
-            let mut found = 0;
+            let mut free_page = entry.skip;
+            let mut free_count = 0;
+            for page in entry.skip .. entry.pages() {
+                let mut usage = entry.usage(page)?;
+                if usage.0 == 0 {
+                    free_count += 1;
 
-            //TODO: improve performance
-            let mut map_phys = start_map_phys;
-            let mut offset = start_offset;
-            'find: while map_phys.data() != 0 {
-                let map_virt = A::phys_to_virt(map_phys);
-                let footer_virt = map_virt.add(Self::MAP_PAGE_BYTES);
-                let mut footer = A::read::<BuddyMapFooter>(footer_virt);
-                offset += footer.skip * A::PAGE_SIZE * 8;
-
-                for i in footer.skip .. Self::MAP_PAGE_BYTES {
-                    let map_byte_virt = map_virt.add(i);
-                    let value: u8 = A::read(map_byte_virt);
-                    if (value & u8::MAX) != 0 {
-                        for bit in 0..8 {
-                            if (value & (1 << bit)) != 0 {
-                                if found == 0 {
-                                    start_map_phys = map_phys;
-                                    start_offset = offset;
-                                    start_i = i;
-                                    start_bit = bit;
-                                    start_page_phys = entry.base.add(offset + bit * A::PAGE_SIZE);
-                                }
-                                found += 1;
-                                if found == count.data() {
-                                    // If skip is set to the start of the newly allocated frames
-                                    if footer.skip == start_i && footer.skip != i {
-                                        // Set it to the end of the newly allocated frames
-                                        footer.skip = i;
-                                        A::write(footer_virt, footer);
-                                    }
-                                    break 'find;
-                                }
-                            } else {
-                                found = 0;
-                            }
-                        }
-
-                    } else {
-                        // If skip is set to the current 8 frames, and they are already used
-                        if footer.skip == i {
-                            // Set skip to the next current frame
-                            footer.skip = i + 1;
-                            A::write(footer_virt, footer);
-                        }
-                        found = 0;
+                    if free_count == count.data() {
+                        break;
                     }
-                    offset += A::PAGE_SIZE * 8;
+                } else {
+                    free_page = page + 1;
+                    free_count = 0;
                 }
-
-                map_phys = footer.next;
             }
 
-            if found == count.data() {
-                map_phys = start_map_phys;
-                offset = start_offset;
-                found = 0;
-                while map_phys.data() != 0 {
-                    let map_virt = A::phys_to_virt(map_phys);
-                    for i in start_i .. Self::MAP_PAGE_BYTES {
-                        let map_byte_virt = map_virt.add(i);
-                        let mut value: u8 = A::read(map_byte_virt);
-                        if (value & u8::MAX) != 0 {
-                            for bit in start_bit..8 {
-                                if (value & (1 << bit)) != 0 {
-                                    value &= !(1 << bit);
-                                    A::write(map_byte_virt, value);
+            if free_count == count.data() {
+                for page in free_page .. free_page + free_count {
+                    // Update usage
+                    let mut usage = entry.usage(page)?;
+                    usage.0 += 1;
+                    entry.set_usage(page, usage);
 
-                                    let page_phys = entry.base.add(offset + bit * A::PAGE_SIZE);
-                                    let page_virt = A::phys_to_virt(page_phys);
-                                    A::write_bytes(page_virt, 0, A::PAGE_SIZE);
-
-                                    found += 1;
-                                    if found == count.data() {
-                                        return Some(start_page_phys);
-                                    }
-                                } else {
-                                    panic!("check your logic, bit was set");
-                                }
-                            }
-                            start_bit = 0;
-                        } else {
-                            panic!("check your logic, byte was set");
-                        }
-                        offset += A::PAGE_SIZE * 8;
-                    }
-                    start_i = 0;
-
-                    let footer_virt = map_virt.add(Self::MAP_PAGE_BYTES);
-                    let footer = A::read::<BuddyMapFooter>(footer_virt);
-                    map_phys = footer.next;
+                    // Zero page
+                    let page_phys = entry.base.add(page << A::PAGE_SHIFT);
+                    let page_virt = A::phys_to_virt(page_phys);
+                    A::write_bytes(page_virt, 0, A::PAGE_SIZE);
                 }
+
+                // Update skip if necessary
+                if entry.skip == free_page {
+                    entry.skip = free_page + free_count;
+                }
+
+                // Update used page count
+                entry.used += free_count;
+
+                // Write updated entry
+                A::write(virt, entry);
+
+                return Some(entry.base.add(free_page << A::PAGE_SHIFT));
             }
         }
+
         None
     }
 
@@ -250,40 +231,40 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
 
         let size = count.data() * A::PAGE_SIZE;
         for i in 0 .. Self::BUDDY_ENTRIES {
-            let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry>());
-            let entry = A::read::<BuddyEntry>(virt);
-            if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
-                //TODO: Correct logic
-                for page in 0 .. count.data() {
-                    let page_base = base.add(page * A::PAGE_SIZE);
-                    let index = (page_base.data() - entry.base.data()) / A::PAGE_SIZE;
-                    let mut map_page = index / Self::MAP_PAGE_BITS;
-                    let map_bit = index % Self::MAP_PAGE_BITS;
+            let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
+            let mut entry = A::read::<BuddyEntry<A>>(virt);
 
-                    //TODO: improve performance
-                    let mut map_phys = entry.map;
-                    loop {
-                        if map_phys.data() == 0 { unimplemented!("map_phys.data() == 0") }
-                        let map_virt = A::phys_to_virt(map_phys);
-                        let footer_virt = map_virt.add(Self::MAP_PAGE_BYTES);
-                        let mut footer = A::read::<BuddyMapFooter>(footer_virt);
-                        if map_page == 0 {
-                            let map_byte = map_bit / 8;
-                            if map_byte < footer.skip {
-                                footer.skip = map_byte;
-                                A::write(footer_virt, footer);
-                            }
-                            let map_byte_virt = map_virt.add(map_byte);
-                            let mut value: u8 = A::read(map_byte_virt);
-                            value |= 1 << (map_bit % 8);
-                            A::write(map_byte_virt, value);
-                            break;
-                        } else {
-                            map_phys = footer.next;
-                            map_page -= 1;
-                        }
+            if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
+                let start_page = (base.data() - entry.base.data()) >> A::PAGE_SHIFT;
+                let end_page = start_page + count.data();
+
+                for page in start_page..start_page + count.data() {
+                    let mut usage = entry.usage(page).expect("failed to get usage during free");
+
+                    if usage.0 > 0 {
+                        usage.0 -= 1;
+                    } else {
+                        panic!("tried to free already free frame");
                     }
+
+                    // If page was freed
+                    if usage.0 == 0 {
+                        // Update skip if necessary
+                        if page < entry.skip {
+                            entry.skip = page;
+                        }
+
+                        // Update used page count
+                        entry.used -= 1;
+                    }
+
+                    entry.set_usage(page, usage).expect("failed to set usage during free");
                 }
+
+                // Write updated entry
+                A::write(virt, entry);
+
+                return;
             }
         }
     }
