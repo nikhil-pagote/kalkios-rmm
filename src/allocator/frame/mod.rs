@@ -20,6 +20,25 @@ impl FrameCount {
     }
 }
 
+pub struct FrameUsage {
+    used: FrameCount,
+    total: FrameCount,
+}
+
+impl FrameUsage {
+    pub fn used(&self) -> FrameCount {
+        self.used
+    }
+
+    pub fn free(&self) -> FrameCount {
+        FrameCount(self.total.0 - self.used.0)
+    }
+
+    pub fn total(&self) -> FrameCount {
+        self.total
+    }
+}
+
 pub trait FrameAllocator {
     unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress>;
 
@@ -32,4 +51,6 @@ pub trait FrameAllocator {
     unsafe fn free_one(&mut self, address: PhysicalAddress) {
         self.free(address, FrameCount::new(1));
     }
+
+    unsafe fn usage(&self) -> FrameUsage;
 }

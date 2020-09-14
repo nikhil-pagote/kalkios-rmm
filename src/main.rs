@@ -253,6 +253,12 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
         flush_all.consume(flush);
     }
     flush_all.flush();
+
+    let usage = allocator.usage();
+    println!("Allocator usage:");
+    println!("  Used: {}", format_size(usage.used().data() * A::PAGE_SIZE));
+    println!("  Free: {}", format_size(usage.free().data() * A::PAGE_SIZE));
+    println!("  Total: {}", format_size(usage.total().data() * A::PAGE_SIZE));
 }
 
 unsafe fn inner<A: Arch>() {

@@ -4,6 +4,7 @@ use crate::{
     Arch,
     FrameAllocator,
     FrameCount,
+    FrameUsage,
     MemoryArea,
     PhysicalAddress,
 };
@@ -55,5 +56,17 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
 
     unsafe fn free(&mut self, _address: PhysicalAddress, _count: FrameCount) {
         unimplemented!("BumpAllocator::free not implemented");
+    }
+
+    unsafe fn usage(&self) -> FrameUsage {
+        let mut total = 0;
+        for area in self.areas.iter() {
+            total += area.size >> A::PAGE_SHIFT;
+        }
+        let used = self.offset >> A::PAGE_SHIFT;
+        FrameUsage {
+            used: FrameCount::new(used),
+            total: FrameCount::new(total),
+        }
     }
 }

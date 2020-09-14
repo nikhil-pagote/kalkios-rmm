@@ -8,6 +8,7 @@ use crate::{
     BumpAllocator,
     FrameAllocator,
     FrameCount,
+    FrameUsage,
     PhysicalAddress,
     VirtualAddress,
 };
@@ -266,6 +267,21 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
 
                 return;
             }
+        }
+    }
+
+    unsafe fn usage(&self) -> FrameUsage {
+        let mut total = 0;
+        let mut used = 0;
+        for i in 0 .. Self::BUDDY_ENTRIES {
+            let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
+            let entry = A::read::<BuddyEntry<A>>(virt);
+            total += entry.size >> A::PAGE_SHIFT;
+            used += entry.used;
+        }
+        FrameUsage {
+            used: FrameCount::new(used),
+            total: FrameCount::new(total),
         }
     }
 }
