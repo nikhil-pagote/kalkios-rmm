@@ -26,6 +26,10 @@ pub struct FrameUsage {
 }
 
 impl FrameUsage {
+    pub fn new(used: FrameCount, total: FrameCount) -> Self {
+        Self { used, total }
+    }
+    
     pub fn used(&self) -> FrameCount {
         self.used
     }

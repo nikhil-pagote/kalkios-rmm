@@ -279,9 +279,6 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
             total += entry.size >> A::PAGE_SHIFT;
             used += entry.used;
         }
-        FrameUsage {
-            used: FrameCount::new(used),
-            total: FrameCount::new(total),
-        }
+        FrameUsage::new(FrameCount::new(used), FrameCount::new(total))
     }
 }

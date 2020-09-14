@@ -64,9 +64,6 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
             total += area.size >> A::PAGE_SHIFT;
         }
         let used = self.offset >> A::PAGE_SHIFT;
-        FrameUsage {
-            used: FrameCount::new(used),
-            total: FrameCount::new(total),
-        }
+        FrameUsage::new(FrameCount::new(used), FrameCount::new(total))
     }
 }
