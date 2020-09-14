@@ -16,7 +16,7 @@ use crate::{
 #[repr(transparent)]
 struct BuddyUsage(u8);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[repr(packed)]
 struct BuddyEntry<A> {
     base: PhysicalAddress,
@@ -87,7 +87,7 @@ impl<A: Arch> BuddyAllocator<A> {
             A::write(virt, BuddyEntry::<A>::empty());
         }
 
-        let mut allocator = Self {
+        let allocator = Self {
             table_virt,
             phantom: PhantomData,
         };
@@ -181,7 +181,7 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
             let mut free_page = entry.skip;
             let mut free_count = 0;
             for page in entry.skip .. entry.pages() {
-                let mut usage = entry.usage(page)?;
+                let usage = entry.usage(page)?;
                 if usage.0 == 0 {
                     free_count += 1;
 
@@ -237,8 +237,6 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
 
             if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
                 let start_page = (base.data() - entry.base.data()) >> A::PAGE_SHIFT;
-                let end_page = start_page + count.data();
-
                 for page in start_page..start_page + count.data() {
                     let mut usage = entry.usage(page).expect("failed to get usage during free");
 
