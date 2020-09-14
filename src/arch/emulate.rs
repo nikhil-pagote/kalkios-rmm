@@ -15,6 +15,7 @@ use crate::{
     arch::x86_64::X8664Arch,
 };
 
+#[derive(Clone, Copy)]
 pub struct EmulateArch;
 
 impl Arch for EmulateArch {

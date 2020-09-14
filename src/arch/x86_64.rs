@@ -5,6 +5,7 @@ use crate::{
     VirtualAddress,
 };
 
+#[derive(Clone, Copy)]
 pub struct X8664Arch;
 
 impl Arch for X8664Arch {

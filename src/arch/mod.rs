@@ -14,7 +14,7 @@ pub use self::x86_64::X8664Arch;
 mod emulate;
 mod x86_64;
 
-pub trait Arch {
+pub trait Arch: Clone + Copy {
     const PAGE_SHIFT: usize;
     const PAGE_ENTRY_SHIFT: usize;
     const PAGE_LEVELS: usize;
@@ -71,6 +71,7 @@ pub trait Arch {
 
     unsafe fn set_table(address: PhysicalAddress);
 
+    #[inline(always)]
     unsafe fn phys_to_virt(phys: PhysicalAddress) -> VirtualAddress {
         VirtualAddress::new(phys.data() + Self::PHYS_OFFSET)
     }
