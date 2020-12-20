@@ -16,7 +16,6 @@ use crate::{
 #[repr(transparent)]
 struct BuddyUsage(u8);
 
-#[derive(Clone, Copy)]
 #[repr(packed)]
 struct BuddyEntry<A> {
     base: PhysicalAddress,
@@ -27,6 +26,19 @@ struct BuddyEntry<A> {
     used: usize,
     phantom: PhantomData<A>,
 }
+
+impl<A> Clone for BuddyEntry<A> {
+    fn clone(&self) -> Self {
+        Self {
+            base: self.base,
+            size: self.size,
+            skip: self.skip,
+            used: self.used,
+            phantom: PhantomData,
+        }
+    }
+}
+impl<A> Copy for BuddyEntry<A> {}
 
 impl<A: Arch> BuddyEntry<A> {
     fn empty() -> Self {
