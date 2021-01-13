@@ -6,10 +6,12 @@ use crate::{
     VirtualAddress,
 };
 
+pub use self::aarch64::AArch64Arch;
 #[cfg(feature = "std")]
 pub use self::emulate::EmulateArch;
 pub use self::x86_64::X8664Arch;
 
+mod aarch64;
 #[cfg(feature = "std")]
 mod emulate;
 mod x86_64;
