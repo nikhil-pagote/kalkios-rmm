@@ -33,7 +33,8 @@ impl Arch for AArch64Arch {
     //TODO: Separate the two?
     const ENTRY_FLAG_NO_EXEC: usize = 0b11 << 53;
 
-    const PHYS_OFFSET: usize = Self::PAGE_NEGATIVE_MASK + (Self::PAGE_ADDRESS_SIZE >> 1); // PML4 slot 256 and onwards
+    //TODO: adjust to match x86_64?
+    const PHYS_OFFSET: usize = 0xfffffe0000000000;
 
     unsafe fn init() -> &'static [MemoryArea] {
         unimplemented!("AArch64Arch::init unimplemented");
