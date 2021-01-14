@@ -22,11 +22,11 @@ pub trait Arch: Clone + Copy {
     const PAGE_LEVELS: usize;
 
     const ENTRY_ADDRESS_SHIFT: usize;
+    const ENTRY_FLAG_DEFAULT_PAGE: usize;
+    const ENTRY_FLAG_DEFAULT_TABLE: usize;
     const ENTRY_FLAG_PRESENT: usize;
     const ENTRY_FLAG_WRITABLE: usize;
     const ENTRY_FLAG_USER: usize;
-    const ENTRY_FLAG_HUGE: usize;
-    const ENTRY_FLAG_GLOBAL: usize;
     const ENTRY_FLAG_NO_EXEC: usize;
 
     const PHYS_OFFSET: usize;

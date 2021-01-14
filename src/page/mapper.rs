@@ -55,7 +55,7 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
     pub unsafe fn map_phys(&mut self, virt: VirtualAddress, phys: PhysicalAddress, flags: usize) -> Option<PageFlush<A>> {
         //TODO: verify virt and phys are aligned
         //TODO: verify flags have correct bits
-        let entry = PageEntry::new(phys.data() | flags | A::ENTRY_FLAG_PRESENT);
+        let entry = PageEntry::new(phys.data() | flags | A::ENTRY_FLAG_DEFAULT_PAGE);
         let mut table = self.table();
         loop {
             let i = table.index_of(virt)?;
@@ -70,7 +70,7 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
                     None => {
                         let next_phys = self.allocator.allocate_one()?;
                         //TODO: correct flags?
-                        table.set_entry(i, PageEntry::new(next_phys.data() | A::ENTRY_FLAG_WRITABLE | A::ENTRY_FLAG_PRESENT));
+                        table.set_entry(i, PageEntry::new(next_phys.data() | A::ENTRY_FLAG_WRITABLE | A::ENTRY_FLAG_DEFAULT_TABLE));
                         table.next(i)?
                     }
                 };
