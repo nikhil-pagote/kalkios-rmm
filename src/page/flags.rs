@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use crate::Arch;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct PageFlags<A> {
     data: usize,
     phantom: PhantomData<A>,

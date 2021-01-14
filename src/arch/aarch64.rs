@@ -18,6 +18,7 @@ impl Arch for AArch64Arch {
     const ENTRY_ADDRESS_SHIFT: usize = 52;
     const ENTRY_FLAG_DEFAULT_PAGE: usize
         = Self::ENTRY_FLAG_PRESENT
+        | 1 << 1 // Page flag
         | 1 << 10 // Access flag
         ;
     const ENTRY_FLAG_DEFAULT_TABLE: usize
