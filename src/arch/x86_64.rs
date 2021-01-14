@@ -14,10 +14,11 @@ impl Arch for X8664Arch {
     const PAGE_LEVELS: usize = 4; // PML4, PDP, PD, PT
 
     const ENTRY_ADDRESS_SHIFT: usize = 52;
-    const ENTRY_FLAG_DEFAULT_PAGE: usize = ENTRY_FLAG_PRESENT;
-    const ENTRY_FLAG_DEFAULT_TABLE: usize = ENTRY_FLAG_PRESENT;
+    const ENTRY_FLAG_DEFAULT_PAGE: usize = Self::ENTRY_FLAG_PRESENT;
+    const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
-    const ENTRY_FLAG_WRITABLE: usize = 1 << 1;
+    const ENTRY_FLAG_READONLY: usize = 0;
+    const ENTRY_FLAG_READWRITE: usize = 1 << 1;
     const ENTRY_FLAG_USER: usize = 1 << 2;
     // Not used: const ENTRY_FLAG_HUGE: usize = 1 << 7;
     // Not used: const ENTRY_FLAG_GLOBAL: usize = 1 << 8;

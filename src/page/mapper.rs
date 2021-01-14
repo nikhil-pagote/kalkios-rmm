@@ -4,6 +4,7 @@ use crate::{
     Arch,
     FrameAllocator,
     PageEntry,
+    PageFlags,
     PageFlush,
     PageTable,
     PhysicalAddress,
@@ -47,15 +48,15 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
         )
     }
 
-    pub unsafe fn map(&mut self, virt: VirtualAddress, flags: usize) -> Option<PageFlush<A>> {
+    pub unsafe fn map(&mut self, virt: VirtualAddress, flags: PageFlags<A>) -> Option<PageFlush<A>> {
         let phys = self.allocator.allocate_one()?;
         self.map_phys(virt, phys, flags)
     }
 
-    pub unsafe fn map_phys(&mut self, virt: VirtualAddress, phys: PhysicalAddress, flags: usize) -> Option<PageFlush<A>> {
+    pub unsafe fn map_phys(&mut self, virt: VirtualAddress, phys: PhysicalAddress, flags: PageFlags<A>) -> Option<PageFlush<A>> {
         //TODO: verify virt and phys are aligned
         //TODO: verify flags have correct bits
-        let entry = PageEntry::new(phys.data() | flags | A::ENTRY_FLAG_DEFAULT_PAGE);
+        let entry = PageEntry::new(phys.data() | flags.data());
         let mut table = self.table();
         loop {
             let i = table.index_of(virt)?;
@@ -70,7 +71,7 @@ impl<'f, A: Arch, F: FrameAllocator> PageMapper<'f, A, F> {
                     None => {
                         let next_phys = self.allocator.allocate_one()?;
                         //TODO: correct flags?
-                        table.set_entry(i, PageEntry::new(next_phys.data() | A::ENTRY_FLAG_WRITABLE | A::ENTRY_FLAG_DEFAULT_TABLE));
+                        table.set_entry(i, PageEntry::new(next_phys.data() | A::ENTRY_FLAG_READWRITE | A::ENTRY_FLAG_DEFAULT_TABLE));
                         table.next(i)?
                     }
                 };

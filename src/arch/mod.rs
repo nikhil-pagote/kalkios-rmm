@@ -25,7 +25,8 @@ pub trait Arch: Clone + Copy {
     const ENTRY_FLAG_DEFAULT_PAGE: usize;
     const ENTRY_FLAG_DEFAULT_TABLE: usize;
     const ENTRY_FLAG_PRESENT: usize;
-    const ENTRY_FLAG_WRITABLE: usize;
+    const ENTRY_FLAG_READONLY: usize;
+    const ENTRY_FLAG_READWRITE: usize;
     const ENTRY_FLAG_USER: usize;
     const ENTRY_FLAG_NO_EXEC: usize;
 
