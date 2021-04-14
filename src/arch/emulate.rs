@@ -24,11 +24,12 @@ impl Arch for EmulateArch {
     const PAGE_LEVELS: usize = X8664Arch::PAGE_LEVELS;
 
     const ENTRY_ADDRESS_SHIFT: usize = X8664Arch::ENTRY_ADDRESS_SHIFT;
+    const ENTRY_FLAG_DEFAULT_PAGE: usize = X8664Arch::ENTRY_FLAG_DEFAULT_PAGE;
+    const ENTRY_FLAG_DEFAULT_TABLE: usize = X8664Arch::ENTRY_FLAG_DEFAULT_TABLE;
     const ENTRY_FLAG_PRESENT: usize = X8664Arch::ENTRY_FLAG_PRESENT;
-    const ENTRY_FLAG_WRITABLE: usize = X8664Arch::ENTRY_FLAG_WRITABLE;
+    const ENTRY_FLAG_READONLY: usize = X8664Arch::ENTRY_FLAG_READONLY;
+    const ENTRY_FLAG_READWRITE: usize = X8664Arch::ENTRY_FLAG_READWRITE;
     const ENTRY_FLAG_USER: usize = X8664Arch::ENTRY_FLAG_USER;
-    const ENTRY_FLAG_HUGE: usize = X8664Arch::ENTRY_FLAG_HUGE;
-    const ENTRY_FLAG_GLOBAL: usize = X8664Arch::ENTRY_FLAG_GLOBAL;
     const ENTRY_FLAG_NO_EXEC: usize = X8664Arch::ENTRY_FLAG_NO_EXEC;
 
     const PHYS_OFFSET: usize = X8664Arch::PHYS_OFFSET;
@@ -40,7 +41,7 @@ impl Arch for EmulateArch {
         // PML4 index 256 (PHYS_OFFSET) link to PDP
         let pml4 = 0;
         let pdp = pml4 + Self::PAGE_SIZE;
-        let flags = Self::ENTRY_FLAG_WRITABLE | Self::ENTRY_FLAG_PRESENT;
+        let flags = Self::ENTRY_FLAG_READWRITE | Self::ENTRY_FLAG_PRESENT;
         machine.write_phys::<usize>(PhysicalAddress::new(pml4 + 256 * Self::PAGE_ENTRY_SIZE), pdp | flags);
 
         // PDP link to PD
@@ -200,7 +201,7 @@ impl<A: Arch> Machine<A> {
         }
 
         if let Some((phys, flags)) = self.translate(virt) {
-            if flags & A::ENTRY_FLAG_WRITABLE != 0 {
+            if flags & A::ENTRY_FLAG_READWRITE != 0 {
                 self.write_phys(phys, value);
             } else {
                 panic!("write: 0x{:X} size 0x{:X} not writable", virt_data, size);
@@ -218,7 +219,7 @@ impl<A: Arch> Machine<A> {
         }
 
         if let Some((phys, flags)) = self.translate(virt) {
-            if flags & A::ENTRY_FLAG_WRITABLE != 0 {
+            if flags & A::ENTRY_FLAG_READWRITE != 0 {
                 self.write_phys_bytes(phys, value, count);
             } else {
                 panic!("write_bytes: 0x{:X} count 0x{:X} not writable", virt_data, count);

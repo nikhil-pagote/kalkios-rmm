@@ -10,6 +10,7 @@ use rmm::{
     FrameAllocator,
     FrameCount,
     MemoryArea,
+    PageFlags,
     PageFlushAll,
     PageMapper,
     PageTable,
@@ -190,7 +191,7 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
                 let flush = mapper.map_phys(
                     virt,
                     phys,
-                    A::ENTRY_FLAG_WRITABLE
+                    PageFlags::<A>::new().write(true)
                 ).expect("failed to map page to frame");
                 flush.ignore(); // Not the active table
             }
@@ -238,7 +239,7 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
         let virt = VirtualAddress::new(MEGABYTE + i * A::PAGE_SIZE);
         let flush = mapper.map(
             virt,
-            A::ENTRY_FLAG_USER | A::ENTRY_FLAG_WRITABLE
+            PageFlags::<A>::new().user(true).write(true)
         ).expect("failed to map page");
         flush_all.consume(flush);
     }

@@ -17,7 +17,17 @@ pub const MEGABYTE: usize = KILOBYTE * KILOBYTE;
 pub const GIGABYTE: usize = KILOBYTE * MEGABYTE;
 pub const TERABYTE: usize = KILOBYTE * GIGABYTE;
 
-// Physical memory address
+/// Specific table to be used, needed on some architectures
+//TODO: Use this throughout the code
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum TableKind {
+    /// Userspace page table
+    User,
+    /// Kernel page table
+    Kernel,
+}
+
+/// Physical memory address
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct PhysicalAddress(usize);
@@ -39,7 +49,7 @@ impl PhysicalAddress {
     }
 }
 
-// Virtual memory address
+/// Virtual memory address
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct VirtualAddress(usize);

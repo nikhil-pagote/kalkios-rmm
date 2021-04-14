@@ -6,10 +6,12 @@ use crate::{
     VirtualAddress,
 };
 
+pub use self::aarch64::AArch64Arch;
 #[cfg(feature = "std")]
 pub use self::emulate::EmulateArch;
 pub use self::x86_64::X8664Arch;
 
+mod aarch64;
 #[cfg(feature = "std")]
 mod emulate;
 mod x86_64;
@@ -20,11 +22,12 @@ pub trait Arch: Clone + Copy {
     const PAGE_LEVELS: usize;
 
     const ENTRY_ADDRESS_SHIFT: usize;
+    const ENTRY_FLAG_DEFAULT_PAGE: usize;
+    const ENTRY_FLAG_DEFAULT_TABLE: usize;
     const ENTRY_FLAG_PRESENT: usize;
-    const ENTRY_FLAG_WRITABLE: usize;
+    const ENTRY_FLAG_READONLY: usize;
+    const ENTRY_FLAG_READWRITE: usize;
     const ENTRY_FLAG_USER: usize;
-    const ENTRY_FLAG_HUGE: usize;
-    const ENTRY_FLAG_GLOBAL: usize;
     const ENTRY_FLAG_NO_EXEC: usize;
 
     const PHYS_OFFSET: usize;
