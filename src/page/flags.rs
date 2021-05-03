@@ -56,6 +56,8 @@ impl<A: Arch> PageFlags<A> {
     #[inline(always)]
     pub fn execute(self, value: bool) -> Self {
         //TODO: write xor execute?
+        // Architecture may use no exec or exec, support either
         self.custom_flag(A::ENTRY_FLAG_NO_EXEC, !value)
+            .custom_flag(A::ENTRY_FLAG_EXEC, value)
     }
 }

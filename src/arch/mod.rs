@@ -7,11 +7,16 @@ use crate::{
 };
 
 pub use self::aarch64::AArch64Arch;
+pub use self::riscv64::{
+    RiscV64Sv39Arch,
+    RiscV64Sv48Arch
+};
 #[cfg(feature = "std")]
 pub use self::emulate::EmulateArch;
 pub use self::x86_64::X8664Arch;
 
 mod aarch64;
+mod riscv64;
 #[cfg(feature = "std")]
 mod emulate;
 mod x86_64;
@@ -29,6 +34,7 @@ pub trait Arch: Clone + Copy {
     const ENTRY_FLAG_READWRITE: usize;
     const ENTRY_FLAG_USER: usize;
     const ENTRY_FLAG_NO_EXEC: usize;
+    const ENTRY_FLAG_EXEC: usize;
 
     const PHYS_OFFSET: usize;
 

@@ -33,6 +33,7 @@ impl Arch for AArch64Arch {
     // This sets both userspace and privileged execute never
     //TODO: Separate the two?
     const ENTRY_FLAG_NO_EXEC: usize = 0b11 << 53;
+    const ENTRY_FLAG_EXEC: usize = 0;
 
     //TODO: adjust to match x86_64?
     const PHYS_OFFSET: usize = 0xfffffe0000000000;

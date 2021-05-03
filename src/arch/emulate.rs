@@ -31,6 +31,7 @@ impl Arch for EmulateArch {
     const ENTRY_FLAG_READWRITE: usize = X8664Arch::ENTRY_FLAG_READWRITE;
     const ENTRY_FLAG_USER: usize = X8664Arch::ENTRY_FLAG_USER;
     const ENTRY_FLAG_NO_EXEC: usize = X8664Arch::ENTRY_FLAG_NO_EXEC;
+    const ENTRY_FLAG_EXEC: usize = X8664Arch::ENTRY_FLAG_EXEC;
 
     const PHYS_OFFSET: usize = X8664Arch::PHYS_OFFSET;
 

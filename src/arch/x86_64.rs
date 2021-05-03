@@ -23,6 +23,7 @@ impl Arch for X8664Arch {
     // Not used: const ENTRY_FLAG_HUGE: usize = 1 << 7;
     // Not used: const ENTRY_FLAG_GLOBAL: usize = 1 << 8;
     const ENTRY_FLAG_NO_EXEC: usize = 1 << 63;
+    const ENTRY_FLAG_EXEC: usize = 0;
 
     const PHYS_OFFSET: usize = Self::PAGE_NEGATIVE_MASK + (Self::PAGE_ADDRESS_SIZE >> 1); // PML4 slot 256 and onwards
 
