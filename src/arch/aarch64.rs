@@ -106,6 +106,6 @@ mod tests {
         assert_eq!(AArch64Arch::ENTRY_ADDRESS_MASK, 0x000F_FFFF_FFFF_F000);
         assert_eq!(AArch64Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
 
-        assert_eq!(AArch64Arch::PHYS_OFFSET, 0xFFFF_8000_0000_0000);
+        assert_eq!(AArch64Arch::PHYS_OFFSET, 0xFFFF_FE00_0000_0000);
     }
 }
