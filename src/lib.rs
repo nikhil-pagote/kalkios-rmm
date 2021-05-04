@@ -69,6 +69,15 @@ impl VirtualAddress {
     pub fn add(self, offset: usize) -> Self {
         Self(self.0 + offset)
     }
+
+    #[inline(always)]
+    pub fn kind(&self) -> TableKind {
+        if (self.0 as isize) < 0 {
+            TableKind::Kernel
+        } else {
+            TableKind::User
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
