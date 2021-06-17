@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(asm)]
-#![feature(const_fn)]
 
 pub use crate::{
     allocator::*,
