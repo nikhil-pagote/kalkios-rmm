@@ -101,6 +101,18 @@ impl Arch for EmulateArch {
     unsafe fn set_table(address: PhysicalAddress) {
         MACHINE.as_mut().unwrap().set_table(address);
     }
+    fn virt_kind(address: VirtualAddress) -> crate::TableKind {
+        // TODO
+        if address.data() & (1 << 63) == (1 << 63) {
+            crate::TableKind::Kernel
+        } else {
+            crate::TableKind::User
+        }
+    }
+    fn virt_is_valid(_address: VirtualAddress) -> bool {
+        // TODO
+        true
+    }
 }
 
 const MEMORY_SIZE: usize = 64 * MEGABYTE;
