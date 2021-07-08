@@ -2,7 +2,6 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
-    TableKind,
     VirtualAddress,
 };
 
@@ -54,13 +53,6 @@ impl Arch for X8664Arch {
         // unmapped memory, but will always be valid once translated via the page table has
         // suceeded.
         address.is_canonical()
-    }
-    fn virt_kind(address: VirtualAddress) -> TableKind {
-        if address.data() & (1 << 48) == (1 << 48) {
-            TableKind::Kernel
-        } else {
-            TableKind::User
-        }
     }
 }
 

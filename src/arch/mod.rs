@@ -87,5 +87,4 @@ pub trait Arch: Clone + Copy {
     }
 
     fn virt_is_valid(address: VirtualAddress) -> bool;
-    fn virt_kind(address: VirtualAddress) -> TableKind;
 }

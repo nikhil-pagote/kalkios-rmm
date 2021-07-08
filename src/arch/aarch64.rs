@@ -86,16 +86,8 @@ impl Arch for AArch64Arch {
     }
 
     fn virt_is_valid(address: VirtualAddress) -> bool {
-        // TODO
+        // FIXME
         true
-    }
-    fn virt_kind(address: VirtualAddress) -> TableKind {
-        // TODO: Is this correct?
-        if address.data() & (1 << 63) == (1 << 63) {
-            TableKind::Kernel
-        } else {
-            TableKind::User
-        }
     }
 }
 
