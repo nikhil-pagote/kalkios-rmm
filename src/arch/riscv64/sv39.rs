@@ -2,6 +2,7 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -57,6 +58,13 @@ impl Arch for RiscV64Sv39Arch {
             (8 << 60) | // Sv39 MODE
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
         asm!("csrw satp, {0}", in(reg) satp);
+    }
+
+    fn virt_is_valid(address: VirtualAddress) -> bool {
+        todo!()
+    }
+    fn virt_kind(address: VirtualAddress) -> TableKind {
+        todo!()
     }
 }
 

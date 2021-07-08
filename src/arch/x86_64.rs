@@ -2,6 +2,7 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -47,12 +48,37 @@ impl Arch for X8664Arch {
     unsafe fn set_table(address: PhysicalAddress) {
         asm!("mov cr3, {0}", in(reg) address.data());
     }
+
+    fn virt_is_valid(address: VirtualAddress) -> bool {
+        // On x86_64, an address is valid if and only if it is canonical. It may still point to
+        // unmapped memory, but will always be valid once translated via the page table has
+        // suceeded.
+        address.is_canonical()
+    }
+    fn virt_kind(address: VirtualAddress) -> TableKind {
+        if address.data() & (1 << 48) == (1 << 48) {
+            TableKind::Kernel
+        } else {
+            TableKind::User
+        }
+    }
+}
+
+impl VirtualAddress {
+    #[cfg(any(doc, target_arch = "x86_64"))]
+    #[doc(cfg(target_arch = "x86_64"))]
+    pub fn is_canonical(self) -> bool {
+        let masked = self.data() & 0xFFFF_8000_0000_0000;
+        // TODO: 5-level paging
+        masked == 0xFFFF_8000_0000_0000
+            || masked == 0
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::Arch;
-    use super::X8664Arch;
+    use super::{VirtualAddress, X8664Arch};
 
     #[test]
     fn constants() {
@@ -71,5 +97,22 @@ mod tests {
         assert_eq!(X8664Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
 
         assert_eq!(X8664Arch::PHYS_OFFSET, 0xFFFF_8000_0000_0000);
+    }
+    #[test]
+    fn is_canonical() {
+        fn yes(address: usize) {
+            assert!(VirtualAddress::new(address).is_canonical());
+        }
+        fn no(address: usize) {
+            assert!(!VirtualAddress::new(address).is_canonical());
+        }
+
+        yes(0xFFFF_8000_1337_1337);
+        yes(0xFFFF_FFFF_FFFF_FFFF);
+        yes(0x0000_0000_0000_0042);
+        yes(0x0000_7FFF_FFFF_FFFF);
+        no(0x1337_0000_0000_0000);
+        no(0x1337_8000_0000_0000);
+        no(0x0000_8000_0000_0000);
     }
 }
