@@ -101,6 +101,10 @@ impl Arch for EmulateArch {
     unsafe fn set_table(address: PhysicalAddress) {
         MACHINE.as_mut().unwrap().set_table(address);
     }
+    fn virt_is_valid(_address: VirtualAddress) -> bool {
+        // TODO: Don't see why an emulated arch would have any problems with canonicalness...
+        true
+    }
 }
 
 const MEMORY_SIZE: usize = 64 * MEGABYTE;

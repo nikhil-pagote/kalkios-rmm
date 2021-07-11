@@ -3,6 +3,7 @@ use core::ptr;
 use crate::{
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -84,4 +85,6 @@ pub trait Arch: Clone + Copy {
     unsafe fn phys_to_virt(phys: PhysicalAddress) -> VirtualAddress {
         VirtualAddress::new(phys.data() + Self::PHYS_OFFSET)
     }
+
+    fn virt_is_valid(address: VirtualAddress) -> bool;
 }

@@ -2,6 +2,7 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -58,6 +59,14 @@ impl Arch for RiscV64Sv48Arch {
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
         asm!("csrw satp, {0}", in(reg) satp);
     }
+    fn virt_is_valid(address: VirtualAddress) -> bool {
+        // RISC-V SV48 uses 48-bit sign-extended addresses, identical to 4-level paging on x86_64.
+        let mask = 0xFFFF_8000_0000_0000;
+        let masked = address.data() & mask;
+
+        masked == mask
+            || masked == 0
+    }
 }
 
 #[cfg(test)]
@@ -82,5 +91,25 @@ mod tests {
         assert_eq!(RiscV64Sv48Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
 
         assert_eq!(RiscV64Sv48Arch::PHYS_OFFSET, 0xFFFF_FE00_0000_0000);
+    }
+    #[test]
+    fn is_canonical() {
+        use super::VirtualAddress;
+
+        // Close to identical when compared to x86_64 test.
+        fn yes(address: usize) {
+            assert!(RiscV64Sv48Arch::virt_is_valid(VirtualAddress::new(address)));
+        }
+        fn no(address: usize) {
+            assert!(!RiscV64Sv48Arch::virt_is_valid(VirtualAddress::new(address)));
+        }
+
+        yes(0xFFFF_8000_1337_1337);
+        yes(0xFFFF_FFFF_FFFF_FFFF);
+        yes(0x0000_0000_0000_0042);
+        yes(0x0000_7FFF_FFFF_FFFF);
+        no(0x1337_0000_0000_0000);
+        no(0x1337_8000_0000_0000);
+        no(0x0000_8000_0000_0000);
     }
 }

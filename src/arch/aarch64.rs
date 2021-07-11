@@ -84,6 +84,11 @@ impl Arch for AArch64Arch {
         //TODO: Does this need to be called?
         Self::invalidate_all();
     }
+
+    fn virt_is_valid(address: VirtualAddress) -> bool {
+        // FIXME
+        true
+    }
 }
 
 #[cfg(test)]

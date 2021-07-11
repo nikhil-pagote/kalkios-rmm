@@ -2,6 +2,7 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -58,6 +59,13 @@ impl Arch for RiscV64Sv39Arch {
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
         asm!("csrw satp, {0}", in(reg) satp);
     }
+
+    fn virt_is_valid(address: VirtualAddress) -> bool {
+        const MASK: usize = 0xFFFF_FFC0_0000_0000;
+        let masked = address.data() & MASK;
+
+        masked == MASK || masked == 0
+    }
 }
 
 #[cfg(test)]
@@ -82,5 +90,30 @@ mod tests {
         assert_eq!(RiscV64Sv39Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
 
         assert_eq!(RiscV64Sv39Arch::PHYS_OFFSET, 0xFFFF_FE00_0000_0000);
+    }
+    #[test]
+    fn is_canonical() {
+        use super::VirtualAddress;
+
+        #[track_caller]
+        fn yes(addr: usize) {
+            assert!(RiscV64Sv39Arch::virt_is_valid(VirtualAddress::new(addr)));
+        }
+        #[track_caller]
+        fn no(addr: usize) {
+            assert!(!RiscV64Sv39Arch::virt_is_valid(VirtualAddress::new(addr)));
+        }
+
+        yes(0xFFFF_FFFF_FFFF_FFFF);
+        yes(0xFFFF_FFF0_1337_1337);
+        no(0x0000_0F00_0000_0000);
+        no(0x1337_0000_0000_0000);
+        no(1 << 38);
+        yes(1 << 37);
+
+        // Check for off-by-one errors.
+        yes(0xFFFF_FFC0_0000_0000 | (1 << 37));
+        yes(0xFFFF_FFE0_0000_0000 | (1 << 37));
+        no(0xFFFF_FF80_0000_0000 | (1 << 37));
     }
 }
