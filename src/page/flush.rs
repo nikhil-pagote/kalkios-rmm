@@ -35,9 +35,10 @@ impl<A: Arch> PageFlush<A> {
     }
 }
 
-#[must_use = "The page table must be flushed, or the changes unsafely ignored"]
-pub struct PageFlushAll<A> {
-    phantom: PhantomData<A>,
+// TODO: Might remove Drop and add #[must_use] again, but ergonomically I prefer being able to pass
+// a flusher, and have it dropped by the end of the function it is passed to, in order to flush.
+pub struct PageFlushAll<A: Arch> {
+    phantom: PhantomData<fn() -> A>,
 }
 
 impl <A: Arch> PageFlushAll<A> {
@@ -47,12 +48,15 @@ impl <A: Arch> PageFlushAll<A> {
         }
     }
 
-    pub fn flush(self) {
-        unsafe { A::invalidate_all(); }
-    }
+    pub fn flush(self) {}
 
     pub unsafe fn ignore(self) {
         mem::forget(self);
+    }
+}
+impl<A: Arch> Drop for PageFlushAll<A> {
+    fn drop(&mut self) {
+        unsafe { A::invalidate_all(); }
     }
 }
 impl<A: Arch> Flusher<A> for PageFlushAll<A> {
