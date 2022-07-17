@@ -111,7 +111,11 @@ impl<A: Arch> PageFlags<A> {
 impl<A: Arch> fmt::Debug for PageFlags<A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PageFlags")
-            .field("data", &self.data)
+            .field("present", &self.has_present())
+            .field("write", &self.has_write())
+            .field("executable", &self.has_execute())
+            .field("user", &self.has_user())
+            .field("bits", &format_args!("{:#0x}", self.data))
             .finish()
     }
 }

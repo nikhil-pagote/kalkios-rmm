@@ -24,8 +24,14 @@ impl<A: Arch> PageEntry<A> {
     }
 
     #[inline(always)]
-    pub fn address(&self) -> PhysicalAddress {
-        PhysicalAddress(self.data & A::ENTRY_ADDRESS_MASK)
+    pub fn address(&self) -> Result<PhysicalAddress, PhysicalAddress> {
+        let addr = PhysicalAddress(self.data & A::ENTRY_ADDRESS_MASK);
+
+        if self.present() {
+            Ok(addr)
+        } else {
+            Err(addr)
+        }
     }
 
     #[inline(always)]
