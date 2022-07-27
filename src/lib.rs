@@ -14,6 +14,7 @@ mod page;
 pub const KILOBYTE: usize = 1024;
 pub const MEGABYTE: usize = KILOBYTE * KILOBYTE;
 pub const GIGABYTE: usize = KILOBYTE * MEGABYTE;
+#[cfg(target_pointer_width = "64")]
 pub const TERABYTE: usize = KILOBYTE * GIGABYTE;
 
 /// Specific table to be used, needed on some architectures

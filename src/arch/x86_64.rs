@@ -27,7 +27,7 @@ impl Arch for X8664Arch {
     const ENTRY_FLAG_NO_EXEC: usize = 1 << 63;
     const ENTRY_FLAG_EXEC: usize = 0;
 
-    const PHYS_OFFSET: usize = Self::PAGE_NEGATIVE_MASK + (Self::PAGE_ADDRESS_SIZE >> 1); // PML4 slot 256 and onwards
+    const PHYS_OFFSET: usize = Self::PAGE_NEGATIVE_MASK + (Self::PAGE_ADDRESS_SIZE >> 1) as usize; // PML4 slot 256 and onwards
 
     unsafe fn init() -> &'static [MemoryArea] {
         unimplemented!("X8664Arch::init unimplemented");
@@ -59,7 +59,6 @@ impl Arch for X8664Arch {
 }
 
 impl VirtualAddress {
-    #[cfg(any(doc, target_arch = "x86_64"))]
     #[doc(cfg(target_arch = "x86_64"))]
     pub fn is_canonical(self) -> bool {
         let masked = self.data() & 0xFFFF_8000_0000_0000;

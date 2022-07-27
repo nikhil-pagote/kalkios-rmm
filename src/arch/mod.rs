@@ -7,19 +7,32 @@ use crate::{
     VirtualAddress,
 };
 
-pub use self::aarch64::AArch64Arch;
-pub use self::riscv64::{
-    RiscV64Sv39Arch,
-    RiscV64Sv48Arch
+//TODO: Support having all page tables compile on all architectures
+#[cfg(target_pointer_width = "32")]
+pub use self::{
+    x86::X86Arch,
 };
-#[cfg(feature = "std")]
+#[cfg(target_pointer_width = "64")]
+pub use self::{
+    aarch64::AArch64Arch,
+    riscv64::{
+        RiscV64Sv39Arch,
+        RiscV64Sv48Arch
+    },
+    x86_64::X8664Arch,
+};
+#[cfg(all(feature = "std", target_pointer_width = "64"))]
 pub use self::emulate::EmulateArch;
-pub use self::x86_64::X8664Arch;
 
+#[cfg(target_pointer_width = "64")]
 mod aarch64;
+#[cfg(target_pointer_width = "64")]
 mod riscv64;
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", target_pointer_width = "64"))]
 mod emulate;
+#[cfg(target_pointer_width = "32")]
+mod x86;
+#[cfg(target_pointer_width = "64")]
 mod x86_64;
 
 pub trait Arch: Clone + Copy {
@@ -42,16 +55,16 @@ pub trait Arch: Clone + Copy {
     const PAGE_SIZE: usize = 1 << Self::PAGE_SHIFT;
     const PAGE_OFFSET_MASK: usize = Self::PAGE_SIZE - 1;
     const PAGE_ADDRESS_SHIFT: usize = Self::PAGE_LEVELS * Self::PAGE_ENTRY_SHIFT + Self::PAGE_SHIFT;
-    const PAGE_ADDRESS_SIZE: usize = 1 << Self::PAGE_ADDRESS_SHIFT;
-    const PAGE_ADDRESS_MASK: usize = Self::PAGE_ADDRESS_SIZE - Self::PAGE_SIZE;
+    const PAGE_ADDRESS_SIZE: u64 = 1 << (Self::PAGE_ADDRESS_SHIFT as u64);
+    const PAGE_ADDRESS_MASK: usize = (Self::PAGE_ADDRESS_SIZE - (Self::PAGE_SIZE as u64)) as usize;
     const PAGE_ENTRY_SIZE: usize = 1 << (Self::PAGE_SHIFT - Self::PAGE_ENTRY_SHIFT);
     const PAGE_ENTRIES: usize = 1 << Self::PAGE_ENTRY_SHIFT;
     const PAGE_ENTRY_MASK: usize = Self::PAGE_ENTRIES - 1;
-    const PAGE_NEGATIVE_MASK: usize = !(Self::PAGE_ADDRESS_SIZE - 1);
+    const PAGE_NEGATIVE_MASK: usize = !((Self::PAGE_ADDRESS_SIZE as u64) - 1) as usize;
 
-    const ENTRY_ADDRESS_SIZE: usize = 1 << Self::ENTRY_ADDRESS_SHIFT;
-    const ENTRY_ADDRESS_MASK: usize = Self::ENTRY_ADDRESS_SIZE - Self::PAGE_SIZE;
-    const ENTRY_FLAGS_MASK: usize = !Self::ENTRY_ADDRESS_MASK;
+    const ENTRY_ADDRESS_SIZE: u64 = 1 << Self::ENTRY_ADDRESS_SHIFT;
+    const ENTRY_ADDRESS_MASK: usize = (Self::ENTRY_ADDRESS_SIZE - (Self::PAGE_SIZE as u64)) as usize;
+    const ENTRY_FLAGS_MASK: usize = !Self::ENTRY_ADDRESS_MASK as usize;
 
     unsafe fn init() -> &'static [MemoryArea];
 
