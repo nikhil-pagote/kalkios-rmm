@@ -93,16 +93,14 @@ impl<A: Arch> PageTable<A> {
     }
 
     pub unsafe fn next(&self, i: usize) -> Option<Self> {
-        if self.level > 0 {
-            let entry = self.entry(i)?;
-            if entry.present() {
-                return Some(PageTable::new(
-                    self.entry_base(i)?,
-                    entry.address(),
-                    self.level - 1
-                ));
-            }
+        if self.level == 0 {
+            return None;
         }
-        None
+
+        Some(PageTable::new(
+            self.entry_base(i)?,
+            self.entry(i)?.address().ok()?,
+            self.level - 1,
+        ))
     }
 }

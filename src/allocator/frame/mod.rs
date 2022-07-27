@@ -20,6 +20,7 @@ impl FrameCount {
     }
 }
 
+#[derive(Debug)]
 pub struct FrameUsage {
     used: FrameCount,
     total: FrameCount,
@@ -57,4 +58,22 @@ pub trait FrameAllocator {
     }
 
     unsafe fn usage(&self) -> FrameUsage;
+}
+
+impl<T> FrameAllocator for &mut T where T: FrameAllocator {
+    unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
+        T::allocate(self, count)
+    }
+    unsafe fn free(&mut self, address: PhysicalAddress, count: FrameCount) {
+        T::free(self, address, count)
+    }
+    unsafe fn allocate_one(&mut self) -> Option<PhysicalAddress> {
+        T::allocate_one(self)
+    }
+    unsafe fn free_one(&mut self, address: PhysicalAddress) {
+        T::free_one(self, address)
+    }
+    unsafe fn usage(&self) -> FrameUsage {
+        T::usage(self)
+    }
 }
