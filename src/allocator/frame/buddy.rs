@@ -120,7 +120,7 @@ impl<A: Arch> BuddyAllocator<A> {
             for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>()) {
                 let virt = table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
                 let mut entry = A::read::<BuddyEntry<A>>(virt);
-                let inserted = if area.base.add(area.size) == entry.base {
+                let inserted = if area.base.add(area.size) == { entry.base } {
                     // Combine entry at start
                     entry.base = area.base;
                     entry.size += area.size;
@@ -247,8 +247,8 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
             let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
             let mut entry = A::read::<BuddyEntry<A>>(virt);
 
-            if base >= entry.base && base.add(size) <= entry.base.add(entry.size) {
-                let start_page = (base.data() - entry.base.data()) >> A::PAGE_SHIFT;
+            if base >= { entry.base } && base.add(size) <= entry.base.add(entry.size) {
+                let start_page = (base.data() - { entry.base }.data()) >> A::PAGE_SHIFT;
                 for page in start_page..start_page + count.data() {
                     let mut usage = entry.usage(page).expect("failed to get usage during free");
 

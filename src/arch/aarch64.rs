@@ -45,7 +45,7 @@ impl Arch for AArch64Arch {
     }
 
     #[inline(always)]
-    unsafe fn invalidate(address: VirtualAddress) {
+    unsafe fn invalidate(_address: VirtualAddress) {
         //TODO: can one address be invalidated?
         Self::invalidate_all();
     }
@@ -87,8 +87,8 @@ impl Arch for AArch64Arch {
         Self::invalidate_all();
     }
 
-    fn virt_is_valid(address: VirtualAddress) -> bool {
-        // FIXME
+    fn virt_is_valid(_address: VirtualAddress) -> bool {
+        //TODO: what makes an address valid on aarch64?
         true
     }
 }

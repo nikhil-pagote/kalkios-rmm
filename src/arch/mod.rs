@@ -3,7 +3,6 @@ use core::ptr;
 use crate::{
     MemoryArea,
     PhysicalAddress,
-    TableKind,
     VirtualAddress,
 };
 

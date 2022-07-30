@@ -129,7 +129,7 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
         //TODO: verify virt is aligned
         let mut table = self.table();
         let level = table.level();
-        unmap_phys_inner(virt, &mut table, level, false, &mut self.allocator).map(|(pa, pf)| (pa, pf, PageFlush::new(virt)))
+        unmap_phys_inner(virt, &mut table, level, unmap_parents, &mut self.allocator).map(|(pa, pf)| (pa, pf, PageFlush::new(virt)))
     }
 }
 unsafe fn unmap_phys_inner<A: Arch>(virt: VirtualAddress, table: &mut PageTable<A>, initial_level: usize, unmap_parents: bool, allocator: &mut impl FrameAllocator) -> Option<(PhysicalAddress, PageFlags<A>)> {

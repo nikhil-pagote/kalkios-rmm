@@ -4,7 +4,6 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
-    TableKind,
     VirtualAddress,
 };
 
@@ -40,7 +39,7 @@ impl Arch for RiscV64Sv48Arch {
     }
 
     #[inline(always)]
-    unsafe fn invalidate(address: VirtualAddress) {
+    unsafe fn invalidate(_address: VirtualAddress) {
         //TODO: can one address be invalidated?
         Self::invalidate_all();
     }
