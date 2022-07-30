@@ -51,7 +51,7 @@ impl Arch for X86Arch {
         asm!("mov cr3, {0}", in(reg) address.data());
     }
 
-    fn virt_is_valid(address: VirtualAddress) -> bool {
+    fn virt_is_valid(_address: VirtualAddress) -> bool {
         // On 32-bit x86, every virtual address is valid
         true
     }
