@@ -3,6 +3,7 @@ use core::ptr;
 use crate::{
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -86,12 +87,13 @@ pub trait Arch: Clone + Copy {
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        Self::set_table(Self::table());
+        //TODO: this stub only works on x86_64, maybe make the arch implement this?
+        Self::set_table(TableKind::User, Self::table(TableKind::User));
     }
 
-    unsafe fn table() -> PhysicalAddress;
+    unsafe fn table(table_kind: TableKind) -> PhysicalAddress;
 
-    unsafe fn set_table(address: PhysicalAddress);
+    unsafe fn set_table(table_kind: TableKind, address: PhysicalAddress);
 
     #[inline(always)]
     unsafe fn phys_to_virt(phys: PhysicalAddress) -> VirtualAddress {

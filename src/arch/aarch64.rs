@@ -61,10 +61,8 @@ impl Arch for AArch64Arch {
     }
 
     #[inline(always)]
-    unsafe fn table() -> PhysicalAddress {
+    unsafe fn table(table_kind: TableKind) -> PhysicalAddress {
         let address: usize;
-        //TODO: set this dynamically
-        let table_kind = TableKind::Kernel;
         match table_kind {
             TableKind::User => {
                 asm!("mrs {0}, ttbr0_el1", out(reg) address);
@@ -77,9 +75,7 @@ impl Arch for AArch64Arch {
     }
 
     #[inline(always)]
-    unsafe fn set_table(address: PhysicalAddress) {
-        //TODO: set this dynamically
-        let table_kind = TableKind::Kernel;
+    unsafe fn set_table(table_kind: TableKind, address: PhysicalAddress) {
         match table_kind {
             TableKind::User => {
                 asm!("msr ttbr0_el1, {0}", in(reg) address.data());

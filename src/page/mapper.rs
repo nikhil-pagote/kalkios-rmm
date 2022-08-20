@@ -13,35 +13,38 @@ use crate::{
 };
 
 pub struct PageMapper<A, F> {
+    table_kind: TableKind,
     table_addr: PhysicalAddress,
     allocator: F,
     _phantom: PhantomData<fn() -> A>,
 }
 
 impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
-    pub unsafe fn new(table_addr: PhysicalAddress, allocator: F) -> Self {
+    pub unsafe fn new(table_kind: TableKind, table_addr: PhysicalAddress, allocator: F) -> Self {
         Self {
+            table_kind,
             table_addr,
             allocator,
             _phantom: PhantomData,
         }
     }
 
-    pub unsafe fn create(mut allocator: F) -> Option<Self> {
+    pub unsafe fn create(table_kind: TableKind, mut allocator: F) -> Option<Self> {
         let table_addr = allocator.allocate_one()?;
-        Some(Self::new(table_addr, allocator))
+        Some(Self::new(table_kind, table_addr, allocator))
     }
 
-    pub unsafe fn current(allocator: F) -> Self {
-        let table_addr = A::table();
-        Self::new(table_addr, allocator)
+    pub unsafe fn current(table_kind: TableKind, allocator: F) -> Self {
+        let table_addr = A::table(table_kind);
+        Self::new(table_kind, table_addr, allocator)
     }
+
     pub fn is_current(&self) -> bool {
-        unsafe { self.table().phys() == A::table() }
+        unsafe { self.table().phys() == A::table(self.table_kind) }
     }
 
     pub unsafe fn make_current(&self) {
-        A::set_table(self.table_addr);
+        A::set_table(self.table_kind, self.table_addr);
     }
 
     pub fn table(&self) -> PageTable<A> {

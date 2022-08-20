@@ -4,6 +4,7 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -44,7 +45,7 @@ impl Arch for RiscV64Sv39Arch {
     }
 
     #[inline(always)]
-    unsafe fn table() -> PhysicalAddress {
+    unsafe fn table(_table_kind: TableKind) -> PhysicalAddress {
         let satp: usize;
         asm!("csrr {0}, satp", out(reg) satp);
         PhysicalAddress::new(
@@ -53,7 +54,7 @@ impl Arch for RiscV64Sv39Arch {
     }
 
     #[inline(always)]
-    unsafe fn set_table(address: PhysicalAddress) {
+    unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
         let satp =
             (8 << 60) | // Sv39 MODE
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)

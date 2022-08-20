@@ -5,6 +5,7 @@ use crate::{
     Arch,
     MemoryArea,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 
@@ -40,14 +41,14 @@ impl Arch for X86Arch {
     }
 
     #[inline(always)]
-    unsafe fn table() -> PhysicalAddress {
+    unsafe fn table(_table_kind: TableKind) -> PhysicalAddress {
         let address: usize;
         asm!("mov {0}, cr3", out(reg) address);
         PhysicalAddress::new(address)
     }
 
     #[inline(always)]
-    unsafe fn set_table(address: PhysicalAddress) {
+    unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
         asm!("mov cr3, {0}", in(reg) address.data());
     }
 

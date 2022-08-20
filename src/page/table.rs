@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use crate::{
     Arch,
     PhysicalAddress,
+    TableKind,
     VirtualAddress,
 };
 use super::PageEntry;
@@ -19,10 +20,10 @@ impl<A: Arch> PageTable<A> {
         Self { base, phys, level, phantom: PhantomData }
     }
 
-    pub unsafe fn top() -> Self {
+    pub unsafe fn top(table_kind: TableKind) -> Self {
         Self::new(
             VirtualAddress::new(0),
-            A::table(),
+            A::table(table_kind),
             A::PAGE_LEVELS - 1
         )
     }
