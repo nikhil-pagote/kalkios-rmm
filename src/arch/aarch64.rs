@@ -45,14 +45,20 @@ impl Arch for AArch64Arch {
     }
 
     #[inline(always)]
-    unsafe fn invalidate(_address: VirtualAddress) {
-        //TODO: can one address be invalidated?
-        Self::invalidate_all();
+    unsafe fn invalidate(address: VirtualAddress) {
+        asm!("
+            dsb ishst
+            tlbi vaae1, {}
+        ", in(reg) (address.data() >> Self::PAGE_SHIFT));
     }
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        asm!("tlbi vmalle1is");
+        asm!("
+            tlbi vmalle1
+            dsb ish
+            isb
+        ");
     }
 
     #[inline(always)]
@@ -83,7 +89,6 @@ impl Arch for AArch64Arch {
                 asm!("msr ttbr1_el1, {0}", in(reg) address.data());
             }
         }
-        //TODO: Does this need to be called?
         Self::invalidate_all();
     }
 
