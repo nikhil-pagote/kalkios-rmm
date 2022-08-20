@@ -31,8 +31,7 @@ impl Arch for RiscV64Sv39Arch {
     const ENTRY_FLAG_NO_EXEC: usize = 0;
     const ENTRY_FLAG_EXEC: usize = 1 << 3;
 
-    //TODO: adjust to match x86_64?
-    const PHYS_OFFSET: usize = 0xfffffe0000000000;
+    const PHYS_OFFSET: usize = 0xFFFF_8000_0000_0000;
 
     unsafe fn init() -> &'static [MemoryArea] {
         unimplemented!("RiscV64Sv39Arch::init unimplemented");
@@ -90,7 +89,7 @@ mod tests {
         assert_eq!(RiscV64Sv39Arch::ENTRY_ADDRESS_MASK, 0x000F_FFFF_FFFF_F000);
         assert_eq!(RiscV64Sv39Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
 
-        assert_eq!(RiscV64Sv39Arch::PHYS_OFFSET, 0xFFFF_FE00_0000_0000);
+        assert_eq!(RiscV64Sv39Arch::PHYS_OFFSET, 0xFFFF_8000_0000_0000);
     }
     #[test]
     fn is_canonical() {
