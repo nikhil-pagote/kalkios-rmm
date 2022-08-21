@@ -59,6 +59,14 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
         }
     }
 
+    pub fn allocator(&self) -> &F {
+        &self.allocator
+    }
+
+    pub fn allocator_mut(&mut self) -> &mut F {
+        &mut self.allocator
+    }
+
     pub unsafe fn remap(&mut self, virt: VirtualAddress, flags: PageFlags<A>) -> Option<PageFlush<A>> {
         self.visit(virt, |p1, i| {
             let mut entry = p1.entry(i)?;
@@ -132,7 +140,7 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
         //TODO: verify virt is aligned
         let mut table = self.table();
         let level = table.level();
-        //TODO: use unmap_parents
+        //TODO: use unmap_parents?
         unmap_phys_inner(virt, &mut table, level, false, &mut self.allocator).map(|(pa, pf)| (pa, pf, PageFlush::new(virt)))
     }
 }
@@ -150,6 +158,8 @@ unsafe fn unmap_phys_inner<A: Arch>(virt: VirtualAddress, table: &mut PageTable<
 
         let res = unmap_phys_inner(virt, &mut subtable, initial_level, unmap_parents, allocator)?;
 
+        //TODO: This is a bad idea for architectures where the kernel mappings are done in the process tables,
+        // as these mappings may become out of sync
         if unmap_parents {
             // TODO: Use a counter? This would reduce the remaining number of available bits, but could be
             // faster (benchmark is needed).
