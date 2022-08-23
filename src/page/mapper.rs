@@ -136,12 +136,11 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
         Some(flush)
     }
 
-    pub unsafe fn unmap_phys(&mut self, virt: VirtualAddress, _unmap_parents: bool) -> Option<(PhysicalAddress, PageFlags<A>, PageFlush<A>)> {
+    pub unsafe fn unmap_phys(&mut self, virt: VirtualAddress, unmap_parents: bool) -> Option<(PhysicalAddress, PageFlags<A>, PageFlush<A>)> {
         //TODO: verify virt is aligned
         let mut table = self.table();
         let level = table.level();
-        //TODO: use unmap_parents?
-        unmap_phys_inner(virt, &mut table, level, false, &mut self.allocator).map(|(pa, pf)| (pa, pf, PageFlush::new(virt)))
+        unmap_phys_inner(virt, &mut table, level, unmap_parents, &mut self.allocator).map(|(pa, pf)| (pa, pf, PageFlush::new(virt)))
     }
 }
 unsafe fn unmap_phys_inner<A: Arch>(virt: VirtualAddress, table: &mut PageTable<A>, initial_level: usize, unmap_parents: bool, allocator: &mut impl FrameAllocator) -> Option<(PhysicalAddress, PageFlags<A>)> {
@@ -166,7 +165,7 @@ unsafe fn unmap_phys_inner<A: Arch>(virt: VirtualAddress, table: &mut PageTable<
             let is_still_populated = (0..A::PAGE_ENTRIES).map(|j| subtable.entry(j).expect("must be within bounds")).any(|e| e.present());
 
             if !is_still_populated {
-                allocator.free_one(table.phys());
+                allocator.free_one(subtable.phys());
                 table.set_entry(i, PageEntry::new(0));
             }
         }
