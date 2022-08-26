@@ -97,7 +97,10 @@ pub trait Arch: Clone + Copy {
 
     #[inline(always)]
     unsafe fn phys_to_virt(phys: PhysicalAddress) -> VirtualAddress {
-        VirtualAddress::new(phys.data() + Self::PHYS_OFFSET)
+        match phys.data().checked_add(Self::PHYS_OFFSET) {
+            Some(some) => VirtualAddress::new(some),
+            None => panic!("phys_to_virt({:#x}) overflow", phys.data()),
+        }
     }
 
     fn virt_is_valid(address: VirtualAddress) -> bool;
