@@ -47,14 +47,17 @@ impl Arch for AArch64Arch {
     unsafe fn invalidate(address: VirtualAddress) {
         asm!("
             dsb ishst
-            tlbi vaae1, {}
+            tlbi vaae1is, {}
+            dsb ish
+            isb
         ", in(reg) (address.data() >> Self::PAGE_SHIFT));
     }
 
     #[inline(always)]
     unsafe fn invalidate_all() {
         asm!("
-            tlbi vmalle1
+            dsb ishst
+            tlbi vmalle1is
             dsb ish
             isb
         ");
