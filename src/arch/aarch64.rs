@@ -11,6 +11,13 @@ use crate::{
 #[derive(Clone, Copy)]
 pub struct AArch64Arch;
 
+#[inline]
+const fn genmask_usize(h: usize, l: usize) -> usize {
+    let bits_per_long = 64;
+
+    ((!0) - (1 << (l)) + 1) & (!0 >> (bits_per_long - 1 - (h)))
+}
+
 impl Arch for AArch64Arch {
     const PAGE_SHIFT: usize = 12; // 4096 bytes
     const PAGE_ENTRY_SHIFT: usize = 9; // 512 entries, 8 bytes each
@@ -90,9 +97,18 @@ impl Arch for AArch64Arch {
         Self::invalidate_all();
     }
 
-    fn virt_is_valid(_address: VirtualAddress) -> bool {
-        //TODO: what makes an address valid on aarch64?
-        true
+    fn virt_is_valid(address: VirtualAddress) -> bool {
+        // ARM ARM D8.2.4 states that TCR_EL1::T1SZ selects
+        // address space size for TTBR1_EL1
+        let tcr: usize;
+
+        unsafe {
+            asm!("mrs {}, tcr", out(reg) tcr);
+        }
+
+        let as_size = 64 - ((tcr & genmask_usize(21, 16)) >> 16);
+
+        address.data() >= genmask_usize(63, as_size)
     }
 }
 
