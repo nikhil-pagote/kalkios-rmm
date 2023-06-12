@@ -24,7 +24,8 @@ impl Arch for X8664Arch {
     const ENTRY_FLAG_READWRITE: usize = 1 << 1;
     const ENTRY_FLAG_USER: usize = 1 << 2;
     // Not used: const ENTRY_FLAG_HUGE: usize = 1 << 7;
-    // Not used: const ENTRY_FLAG_GLOBAL: usize = 1 << 8;
+    const ENTRY_FLAG_GLOBAL: usize = 1 << 8;
+    const ENTRY_FLAG_NO_GLOBAL: usize = 0;
     const ENTRY_FLAG_NO_EXEC: usize = 1 << 63;
     const ENTRY_FLAG_EXEC: usize = 0;
 

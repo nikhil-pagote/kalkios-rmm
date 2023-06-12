@@ -49,6 +49,8 @@ pub trait Arch: Clone + Copy {
     const ENTRY_FLAG_USER: usize;
     const ENTRY_FLAG_NO_EXEC: usize;
     const ENTRY_FLAG_EXEC: usize;
+    const ENTRY_FLAG_GLOBAL: usize;
+    const ENTRY_FLAG_NO_GLOBAL: usize;
 
     const PHYS_OFFSET: usize;
 

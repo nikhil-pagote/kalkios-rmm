@@ -1,14 +1,11 @@
-use core::{
-    fmt,
-    marker::PhantomData
-};
+use core::{fmt, marker::PhantomData};
 
 use crate::Arch;
 
 #[derive(Clone, Copy)]
 pub struct PageFlags<A> {
     data: usize,
-    phantom: PhantomData<A>,
+    arch: PhantomData<A>,
 }
 
 impl<A: Arch> PageFlags<A> {
@@ -19,7 +16,8 @@ impl<A: Arch> PageFlags<A> {
                 // Flags set to present, kernel space, read-only, no-execute by default
                 A::ENTRY_FLAG_DEFAULT_PAGE |
                 A::ENTRY_FLAG_READONLY |
-                A::ENTRY_FLAG_NO_EXEC
+                A::ENTRY_FLAG_NO_EXEC |
+                A::ENTRY_FLAG_NO_GLOBAL,
             )
         }
     }
@@ -31,14 +29,18 @@ impl<A: Arch> PageFlags<A> {
                 // Flags set to present, kernel space, read-only, no-execute by default
                 A::ENTRY_FLAG_DEFAULT_TABLE |
                 A::ENTRY_FLAG_READONLY |
-                A::ENTRY_FLAG_NO_EXEC
+                A::ENTRY_FLAG_NO_EXEC |
+                A::ENTRY_FLAG_NO_GLOBAL,
             )
         }
     }
 
     #[inline(always)]
     pub unsafe fn from_data(data: usize) -> Self {
-        Self { data, phantom: PhantomData }
+        Self {
+            data,
+            arch: PhantomData,
+        }
     }
 
     #[inline(always)]
@@ -105,6 +107,20 @@ impl<A: Arch> PageFlags<A> {
     pub fn has_execute(&self) -> bool {
         // Architecture may use no exec or exec, support either
         self.data & (A::ENTRY_FLAG_NO_EXEC | A::ENTRY_FLAG_EXEC) == A::ENTRY_FLAG_EXEC
+    }
+
+    #[must_use]
+    #[inline(always)]
+    pub fn global(self, value: bool) -> Self {
+        // Architecture may use global or non global, support either
+        self.custom_flag(A::ENTRY_FLAG_NO_GLOBAL, !value)
+            .custom_flag(A::ENTRY_FLAG_GLOBAL, value)
+    }
+
+    #[inline(always)]
+    pub fn is_global(&self) -> bool {
+        // Architecture may use global or non global, support either
+        self.data & (A::ENTRY_FLAG_NO_GLOBAL | A::ENTRY_FLAG_NO_GLOBAL) == A::ENTRY_FLAG_GLOBAL
     }
 }
 

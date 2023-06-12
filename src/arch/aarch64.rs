@@ -36,6 +36,8 @@ impl Arch for AArch64Arch {
     //TODO: Separate the two?
     const ENTRY_FLAG_NO_EXEC: usize = 0b11 << 53;
     const ENTRY_FLAG_EXEC: usize = 0;
+    const ENTRY_FLAG_GLOBAL: usize = 0;
+    const ENTRY_FLAG_NO_GLOBAL: usize = 1 << 11;
 
     const PHYS_OFFSET: usize = 0xFFFF_8000_0000_0000;
 
