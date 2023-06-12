@@ -12,10 +12,10 @@ mod arch;
 mod page;
 
 pub const KILOBYTE: usize = 1024;
-pub const MEGABYTE: usize = KILOBYTE * KILOBYTE;
-pub const GIGABYTE: usize = KILOBYTE * MEGABYTE;
+pub const MEGABYTE: usize = KILOBYTE * 1024;
+pub const GIGABYTE: usize = MEGABYTE * 1024;
 #[cfg(target_pointer_width = "64")]
-pub const TERABYTE: usize = KILOBYTE * GIGABYTE;
+pub const TERABYTE: usize = GIGABYTE * 1024;
 
 /// Specific table to be used, needed on some architectures
 //TODO: Use this throughout the code

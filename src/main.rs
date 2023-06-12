@@ -20,10 +20,6 @@ use rmm::{
     VirtualAddress,
 };
 
-use core::{
-    marker::PhantomData,
-};
-
 pub fn format_size(size: usize) -> String {
     if size >= 2 * TERABYTE {
         format!("{} TB", size / TERABYTE)

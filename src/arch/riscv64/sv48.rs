@@ -31,6 +31,8 @@ impl Arch for RiscV64Sv48Arch {
     const ENTRY_FLAG_USER: usize = 1 << 4;
     const ENTRY_FLAG_NO_EXEC: usize = 0;
     const ENTRY_FLAG_EXEC: usize = 1 << 3;
+    const ENTRY_FLAG_GLOBAL: usize = 1 << 5;
+    const ENTRY_FLAG_NO_GLOBAL: usize = 0;
 
     const PHYS_OFFSET: usize = 0xFFFF_8000_0000_0000;
 
