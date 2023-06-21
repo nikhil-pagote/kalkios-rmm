@@ -70,6 +70,7 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
     pub unsafe fn remap(&mut self, virt: VirtualAddress, flags: PageFlags<A>) -> Option<PageFlush<A>> {
         self.visit(virt, |p1, i| {
             let mut entry = p1.entry(i)?;
+            entry.address().ok()?;
             entry.set_flags(flags);
             p1.set_entry(i, entry);
             Some(PageFlush::new(virt))
