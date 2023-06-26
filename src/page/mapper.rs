@@ -67,14 +67,23 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
         &mut self.allocator
     }
 
-    pub unsafe fn remap(&mut self, virt: VirtualAddress, flags: PageFlags<A>) -> Option<PageFlush<A>> {
+    pub unsafe fn remap_with_full(&mut self, virt: VirtualAddress, f: impl FnOnce(PhysicalAddress, PageFlags<A>) -> (PhysicalAddress, PageFlags<A>)) -> Option<(PageFlags<A>, PhysicalAddress, PageFlush<A>)> {
         self.visit(virt, |p1, i| {
-            let mut entry = p1.entry(i)?;
-            entry.address().ok()?;
-            entry.set_flags(flags);
-            p1.set_entry(i, entry);
-            Some(PageFlush::new(virt))
+            let old_entry = p1.entry(i)?;
+            let old_phys = old_entry.address().ok()?;
+            let old_flags = old_entry.flags();
+            let (new_phys, new_flags) = f(old_phys, old_flags);
+            // TODO: Higher-level PageEntry::new interface?
+            let new_entry = PageEntry::new(new_phys.data() | new_flags.data());
+            p1.set_entry(i, new_entry);
+            Some((old_flags, old_phys, PageFlush::new(virt)))
         }).flatten()
+    }
+    pub unsafe fn remap_with(&mut self, virt: VirtualAddress, map_flags: impl FnOnce(PageFlags<A>) -> PageFlags<A>) -> Option<(PageFlags<A>, PhysicalAddress, PageFlush<A>)> {
+        self.remap_with_full(virt, |same_phys, old_flags| (same_phys, map_flags(old_flags)))
+    }
+    pub unsafe fn remap(&mut self, virt: VirtualAddress, flags: PageFlags<A>) -> Option<PageFlush<A>> {
+        self.remap_with(virt, |_| flags).map(|(_, _, flush)| flush)
     }
 
     pub unsafe fn map(&mut self, virt: VirtualAddress, flags: PageFlags<A>) -> Option<PageFlush<A>> {
