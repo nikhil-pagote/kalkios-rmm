@@ -120,7 +120,7 @@ impl<A: Arch> PageFlags<A> {
     #[inline(always)]
     pub fn is_global(&self) -> bool {
         // Architecture may use global or non global, support either
-        self.data & (A::ENTRY_FLAG_NO_GLOBAL | A::ENTRY_FLAG_NO_GLOBAL) == A::ENTRY_FLAG_GLOBAL
+        self.data & (A::ENTRY_FLAG_GLOBAL | A::ENTRY_FLAG_NO_GLOBAL) == A::ENTRY_FLAG_GLOBAL
     }
 }
 
