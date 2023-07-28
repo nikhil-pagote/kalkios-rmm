@@ -50,7 +50,7 @@ impl PhysicalAddress {
 }
 
 /// Virtual memory address
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct VirtualAddress(usize);
 
@@ -77,6 +77,11 @@ impl VirtualAddress {
         } else {
             TableKind::User
         }
+    }
+}
+impl core::fmt::Debug for VirtualAddress {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "[virt {:#0x}]", self.data())
     }
 }
 
