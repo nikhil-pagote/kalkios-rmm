@@ -35,18 +35,17 @@ impl<A: Arch> BumpAllocator<A> {
 
 impl<A: Arch> FrameAllocator for BumpAllocator<A> {
     unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
-        //TODO: support allocation of multiple pages
-        if count.data() != 1 {
-            return None;
-        }
-
         let mut offset = self.offset;
         for area in self.areas.iter() {
             if offset < area.size {
+                if area.size - offset < count.data() {
+                    return None;
+                }
+
                 let page_phys = area.base.add(offset);
                 let page_virt = A::phys_to_virt(page_phys);
-                A::write_bytes(page_virt, 0, A::PAGE_SIZE);
-                self.offset += A::PAGE_SIZE;
+                A::write_bytes(page_virt, 0, count.data() * A::PAGE_SIZE);
+                self.offset += count.data() * A::PAGE_SIZE;
                 return Some(page_phys);
             }
             offset -= area.size;
