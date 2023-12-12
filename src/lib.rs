@@ -50,7 +50,7 @@ impl PhysicalAddress {
 }
 
 /// Virtual memory address
-#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct VirtualAddress(usize);
 
