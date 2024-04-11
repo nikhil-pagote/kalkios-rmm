@@ -62,14 +62,11 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
         for area in self.areas.iter() {
             if offset < area.size {
                 if area.size - offset < count.data() * A::PAGE_SIZE {
-                    /*
                     // The area may be too small for this alloc request. In that case, skip to the
                     // next area.
                     self.offset += area.size - offset;
                     offset = 0;
                     continue;
-                    */
-                    return None;
                 }
 
                 let page_phys = area.base.add(offset);
