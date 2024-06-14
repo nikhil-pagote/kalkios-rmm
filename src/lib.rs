@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(doc_cfg)]
+#![feature(let_chains)]
 
 pub use crate::{allocator::*, arch::*, page::*};
 
