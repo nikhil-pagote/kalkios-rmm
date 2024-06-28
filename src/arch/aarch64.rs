@@ -32,6 +32,7 @@ impl Arch for AArch64Arch {
     const ENTRY_FLAG_EXEC: usize = 0;
     const ENTRY_FLAG_GLOBAL: usize = 0;
     const ENTRY_FLAG_NO_GLOBAL: usize = 1 << 11;
+    const ENTRY_FLAG_WRITE_COMBINING: usize = 0;
 
     const PHYS_OFFSET: usize = 0xFFFF_8000_0000_0000;
 

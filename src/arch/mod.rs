@@ -43,6 +43,7 @@ pub trait Arch: Clone + Copy {
     const ENTRY_FLAG_EXEC: usize;
     const ENTRY_FLAG_GLOBAL: usize;
     const ENTRY_FLAG_NO_GLOBAL: usize;
+    const ENTRY_FLAG_WRITE_COMBINING: usize;
 
     const PHYS_OFFSET: usize;
 

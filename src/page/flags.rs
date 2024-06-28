@@ -56,6 +56,12 @@ impl<A: Arch> PageFlags<A> {
         self
     }
 
+    #[must_use]
+    #[inline(always)]
+    pub fn write_combining(self, value: bool) -> Self {
+        self.custom_flag(A::ENTRY_FLAG_WRITE_COMBINING, value)
+    }
+
     #[inline(always)]
     pub fn has_flag(&self, flag: usize) -> bool {
         self.data & flag == flag

@@ -31,6 +31,8 @@ impl Arch for EmulateArch {
 
     const ENTRY_ADDRESS_WIDTH: usize = X8664Arch::ENTRY_ADDRESS_WIDTH;
 
+    const ENTRY_FLAG_WRITE_COMBINING: usize = X8664Arch::ENTRY_FLAG_WRITE_COMBINING;
+
     unsafe fn init() -> &'static [MemoryArea] {
         // Create machine with PAGE_ENTRIES pages offset mapped (2 MiB on x86_64)
         let mut machine = Machine::new(MEMORY_SIZE);
