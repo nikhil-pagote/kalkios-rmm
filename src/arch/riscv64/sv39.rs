@@ -1,12 +1,6 @@
 use core::arch::asm;
 
-use crate::{
-    Arch,
-    MemoryArea,
-    PhysicalAddress,
-    TableKind,
-    VirtualAddress,
-};
+use crate::{Arch, MemoryArea, PhysicalAddress, TableKind, VirtualAddress};
 
 #[derive(Clone, Copy)]
 pub struct RiscV64Sv39Arch;
@@ -22,9 +16,7 @@ impl Arch for RiscV64Sv39Arch {
         = Self::ENTRY_FLAG_PRESENT
         | 1 << 1 // Read flag
         ;
-    const ENTRY_FLAG_DEFAULT_TABLE: usize
-        = Self::ENTRY_FLAG_PRESENT
-        ;
+    const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
     const ENTRY_FLAG_READONLY: usize = 0;
     const ENTRY_FLAG_READWRITE: usize = 1 << 2;
@@ -51,14 +43,13 @@ impl Arch for RiscV64Sv39Arch {
         let satp: usize;
         asm!("csrr {0}, satp", out(reg) satp);
         PhysicalAddress::new(
-            (satp & 0x0000_0FFF_FFFF_FFFF) << Self::PAGE_SHIFT // Convert from PPN
+            (satp & 0x0000_0FFF_FFFF_FFFF) << Self::PAGE_SHIFT, // Convert from PPN
         )
     }
 
     #[inline(always)]
     unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
-        let satp =
-            (8 << 60) | // Sv39 MODE
+        let satp = (8 << 60) | // Sv39 MODE
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
         asm!("csrw satp, {0}", in(reg) satp);
     }
@@ -73,8 +64,8 @@ impl Arch for RiscV64Sv39Arch {
 
 #[cfg(test)]
 mod tests {
-    use crate::Arch;
     use super::RiscV64Sv39Arch;
+    use crate::Arch;
 
     #[test]
     fn constants() {

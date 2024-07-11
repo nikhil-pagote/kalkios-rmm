@@ -1,10 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::{
-    Arch,
-    PageFlags,
-    PhysicalAddress,
-};
+use crate::{Arch, PageFlags, PhysicalAddress};
 
 #[derive(Clone, Copy, Debug)]
 pub struct PageEntry<A> {
@@ -15,7 +11,10 @@ pub struct PageEntry<A> {
 impl<A: Arch> PageEntry<A> {
     #[inline(always)]
     pub fn new(data: usize) -> Self {
-        Self { data, phantom: PhantomData }
+        Self {
+            data,
+            phantom: PhantomData,
+        }
     }
 
     #[inline(always)]

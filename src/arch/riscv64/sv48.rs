@@ -1,12 +1,6 @@
 use core::arch::asm;
 
-use crate::{
-    Arch,
-    MemoryArea,
-    PhysicalAddress,
-    TableKind,
-    VirtualAddress,
-};
+use crate::{Arch, MemoryArea, PhysicalAddress, TableKind, VirtualAddress};
 
 #[derive(Clone, Copy)]
 pub struct RiscV64Sv48Arch;
@@ -22,9 +16,7 @@ impl Arch for RiscV64Sv48Arch {
         = Self::ENTRY_FLAG_PRESENT
         | 1 << 1 // Read flag
         ;
-    const ENTRY_FLAG_DEFAULT_TABLE: usize
-        = Self::ENTRY_FLAG_PRESENT
-        ;
+    const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
     const ENTRY_FLAG_READONLY: usize = 0;
     const ENTRY_FLAG_READWRITE: usize = 1 << 2;
@@ -51,14 +43,13 @@ impl Arch for RiscV64Sv48Arch {
         let satp: usize;
         asm!("csrr {0}, satp", out(reg) satp);
         PhysicalAddress::new(
-            (satp & 0x0000_0FFF_FFFF_FFFF) << Self::PAGE_SHIFT // Convert from PPN
+            (satp & 0x0000_0FFF_FFFF_FFFF) << Self::PAGE_SHIFT, // Convert from PPN
         )
     }
 
     #[inline(always)]
     unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
-        let satp =
-            (9 << 60) | // Sv48 MODE
+        let satp = (9 << 60) | // Sv48 MODE
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
         asm!("csrw satp, {0}", in(reg) satp);
     }
@@ -67,15 +58,14 @@ impl Arch for RiscV64Sv48Arch {
         let mask = 0xFFFF_8000_0000_0000;
         let masked = address.data() & mask;
 
-        masked == mask
-            || masked == 0
+        masked == mask || masked == 0
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Arch;
     use super::RiscV64Sv48Arch;
+    use crate::Arch;
 
     #[test]
     fn constants() {
@@ -104,7 +94,9 @@ mod tests {
             assert!(RiscV64Sv48Arch::virt_is_valid(VirtualAddress::new(address)));
         }
         fn no(address: usize) {
-            assert!(!RiscV64Sv48Arch::virt_is_valid(VirtualAddress::new(address)));
+            assert!(!RiscV64Sv48Arch::virt_is_valid(VirtualAddress::new(
+                address
+            )));
         }
 
         yes(0xFFFF_8000_1337_1337);

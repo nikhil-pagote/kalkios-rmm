@@ -1,16 +1,7 @@
-use core::{
-    marker::PhantomData,
-    mem,
-};
+use core::{marker::PhantomData, mem};
 
 use crate::{
-    Arch,
-    BumpAllocator,
-    FrameAllocator,
-    FrameCount,
-    FrameUsage,
-    PhysicalAddress,
-    VirtualAddress,
+    Arch, BumpAllocator, FrameAllocator, FrameCount, FrameUsage, PhysicalAddress, VirtualAddress,
 };
 
 #[repr(transparent)]
@@ -94,7 +85,7 @@ impl<A: Arch> BuddyAllocator<A> {
         // Allocate buddy table
         let table_phys = bump_allocator.allocate_one()?;
         let table_virt = A::phys_to_virt(table_phys);
-        for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>()) {
+        for i in 0..(A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>()) {
             let virt = table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
             A::write(virt, BuddyEntry::<A>::empty());
         }
@@ -117,7 +108,7 @@ impl<A: Arch> BuddyAllocator<A> {
                 area.size -= offset;
                 offset = 0;
             }
-            for i in 0 .. (A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>()) {
+            for i in 0..(A::PAGE_SIZE / mem::size_of::<BuddyEntry<A>>()) {
                 let virt = table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
                 let mut entry = A::read::<BuddyEntry<A>>(virt);
                 let inserted = if area.base.add(area.size) == { entry.base } {
@@ -147,7 +138,7 @@ impl<A: Arch> BuddyAllocator<A> {
         //TODO: sort areas?
 
         // Allocate buddy maps
-        for i in 0 .. Self::BUDDY_ENTRIES {
+        for i in 0..Self::BUDDY_ENTRIES {
             let virt = table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
             let mut entry = A::read::<BuddyEntry<A>>(virt);
 
@@ -186,13 +177,15 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
             return None;
         }
 
-        for entry_i in 0 .. Self::BUDDY_ENTRIES {
-            let virt = self.table_virt.add(entry_i * mem::size_of::<BuddyEntry<A>>());
+        for entry_i in 0..Self::BUDDY_ENTRIES {
+            let virt = self
+                .table_virt
+                .add(entry_i * mem::size_of::<BuddyEntry<A>>());
             let mut entry = A::read::<BuddyEntry<A>>(virt);
 
             let mut free_page = entry.skip;
             let mut free_count = 0;
-            for page in entry.skip .. entry.pages() {
+            for page in entry.skip..entry.pages() {
                 let usage = entry.usage(page)?;
                 if usage.0 == 0 {
                     free_count += 1;
@@ -207,7 +200,7 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
             }
 
             if free_count == count.data() {
-                for page in free_page .. free_page + free_count {
+                for page in free_page..free_page + free_count {
                     // Update usage
                     let mut usage = entry.usage(page)?;
                     usage.0 += 1;
@@ -243,7 +236,7 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
         }
 
         let size = count.data() * A::PAGE_SIZE;
-        for i in 0 .. Self::BUDDY_ENTRIES {
+        for i in 0..Self::BUDDY_ENTRIES {
             let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
             let mut entry = A::read::<BuddyEntry<A>>(virt);
 
@@ -269,7 +262,9 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
                         entry.used -= 1;
                     }
 
-                    entry.set_usage(page, usage).expect("failed to set usage during free");
+                    entry
+                        .set_usage(page, usage)
+                        .expect("failed to set usage during free");
                 }
 
                 // Write updated entry
@@ -283,7 +278,7 @@ impl<A: Arch> FrameAllocator for BuddyAllocator<A> {
     unsafe fn usage(&self) -> FrameUsage {
         let mut total = 0;
         let mut used = 0;
-        for i in 0 .. Self::BUDDY_ENTRIES {
+        for i in 0..Self::BUDDY_ENTRIES {
             let virt = self.table_virt.add(i * mem::size_of::<BuddyEntry<A>>());
             let entry = A::read::<BuddyEntry<A>>(virt);
             total += entry.size >> A::PAGE_SHIFT;

@@ -1,12 +1,6 @@
 use core::arch::asm;
 
-use crate::{
-    Arch,
-    MemoryArea,
-    PhysicalAddress,
-    TableKind,
-    VirtualAddress,
-};
+use crate::{Arch, MemoryArea, PhysicalAddress, TableKind, VirtualAddress};
 
 #[derive(Clone, Copy, Debug)]
 pub struct X8664Arch;
@@ -65,15 +59,14 @@ impl VirtualAddress {
     pub fn is_canonical(self) -> bool {
         let masked = self.data() & 0xFFFF_8000_0000_0000;
         // TODO: 5-level paging
-        masked == 0xFFFF_8000_0000_0000
-            || masked == 0
+        masked == 0xFFFF_8000_0000_0000 || masked == 0
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Arch;
     use super::{VirtualAddress, X8664Arch};
+    use crate::Arch;
 
     #[test]
     fn constants() {

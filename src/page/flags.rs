@@ -14,10 +14,10 @@ impl<A: Arch> PageFlags<A> {
         unsafe {
             Self::from_data(
                 // Flags set to present, kernel space, read-only, no-execute by default
-                A::ENTRY_FLAG_DEFAULT_PAGE |
-                A::ENTRY_FLAG_READONLY |
-                A::ENTRY_FLAG_NO_EXEC |
-                A::ENTRY_FLAG_NO_GLOBAL,
+                A::ENTRY_FLAG_DEFAULT_PAGE
+                    | A::ENTRY_FLAG_READONLY
+                    | A::ENTRY_FLAG_NO_EXEC
+                    | A::ENTRY_FLAG_NO_GLOBAL,
             )
         }
     }
@@ -27,10 +27,10 @@ impl<A: Arch> PageFlags<A> {
         unsafe {
             Self::from_data(
                 // Flags set to present, kernel space, read-only, no-execute by default
-                A::ENTRY_FLAG_DEFAULT_TABLE |
-                A::ENTRY_FLAG_READONLY |
-                A::ENTRY_FLAG_NO_EXEC |
-                A::ENTRY_FLAG_NO_GLOBAL,
+                A::ENTRY_FLAG_DEFAULT_TABLE
+                    | A::ENTRY_FLAG_READONLY
+                    | A::ENTRY_FLAG_NO_EXEC
+                    | A::ENTRY_FLAG_NO_GLOBAL,
             )
         }
     }

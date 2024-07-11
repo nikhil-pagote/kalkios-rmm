@@ -1,12 +1,7 @@
 use core::marker::PhantomData;
 
-use crate::{
-    Arch,
-    PhysicalAddress,
-    TableKind,
-    VirtualAddress,
-};
 use super::PageEntry;
+use crate::{Arch, PhysicalAddress, TableKind, VirtualAddress};
 
 pub struct PageTable<A> {
     base: VirtualAddress,
@@ -17,14 +12,19 @@ pub struct PageTable<A> {
 
 impl<A: Arch> PageTable<A> {
     pub unsafe fn new(base: VirtualAddress, phys: PhysicalAddress, level: usize) -> Self {
-        Self { base, phys, level, phantom: PhantomData }
+        Self {
+            base,
+            phys,
+            level,
+            phantom: PhantomData,
+        }
     }
 
     pub unsafe fn top(table_kind: TableKind) -> Self {
         Self::new(
             VirtualAddress::new(0),
             A::table(table_kind),
-            A::PAGE_LEVELS - 1
+            A::PAGE_LEVELS - 1,
         )
     }
 
@@ -85,7 +85,11 @@ impl<A: Arch> PageTable<A> {
         // Canonicalize address first
         let address = VirtualAddress::new(address.data() & A::PAGE_ADDRESS_MASK);
         let level_shift = self.level * A::PAGE_ENTRY_SHIFT + A::PAGE_SHIFT;
-        let level_mask = (A::PAGE_ENTRIES << level_shift) - 1;
+        // Intentionally wraps around at last-level table to get all-ones mask on architectures
+        // where addressable physical address space covers entire usized space (e.g. x86)
+        let level_mask = A::PAGE_ENTRIES
+            .wrapping_shl(level_shift as u32)
+            .wrapping_sub(1);
         if address >= self.base && address <= self.base.add(level_mask) {
             Some((address.data() >> level_shift) & A::PAGE_ENTRY_MASK)
         } else {
