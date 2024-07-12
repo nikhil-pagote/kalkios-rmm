@@ -24,7 +24,7 @@ impl Arch for AArch64Arch {
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
     const ENTRY_FLAG_READONLY: usize = 1 << 7;
     const ENTRY_FLAG_READWRITE: usize = 0;
-    const ENTRY_FLAG_USER: usize = 1 << 6;
+    const ENTRY_FLAG_PAGE_USER: usize = 1 << 6;
     // This sets both userspace and privileged execute never
     //TODO: Separate the two?
     const ENTRY_FLAG_NO_EXEC: usize = 0b11 << 53;

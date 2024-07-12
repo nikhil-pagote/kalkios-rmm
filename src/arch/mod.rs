@@ -36,7 +36,8 @@ pub trait Arch: Clone + Copy {
     const ENTRY_FLAG_PRESENT: usize;
     const ENTRY_FLAG_READONLY: usize;
     const ENTRY_FLAG_READWRITE: usize;
-    const ENTRY_FLAG_USER: usize;
+    const ENTRY_FLAG_PAGE_USER: usize; // Leaf table user page flag
+    const ENTRY_FLAG_TABLE_USER: usize = Self::ENTRY_FLAG_PAGE_USER; // Directory user page table flag
     const ENTRY_FLAG_NO_EXEC: usize;
     const ENTRY_FLAG_EXEC: usize;
     const ENTRY_FLAG_GLOBAL: usize;

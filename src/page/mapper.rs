@@ -123,7 +123,7 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
                         let flags = A::ENTRY_FLAG_READWRITE
                             | A::ENTRY_FLAG_DEFAULT_TABLE
                             | if virt.kind() == TableKind::User {
-                                A::ENTRY_FLAG_USER
+                                A::ENTRY_FLAG_TABLE_USER
                             } else {
                                 0
                             };

@@ -17,7 +17,7 @@ impl Arch for X86Arch {
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
     const ENTRY_FLAG_READONLY: usize = 0;
     const ENTRY_FLAG_READWRITE: usize = 1 << 1;
-    const ENTRY_FLAG_USER: usize = 1 << 2;
+    const ENTRY_FLAG_PAGE_USER: usize = 1 << 2;
     // Not used: const ENTRY_FLAG_HUGE: usize = 1 << 7;
     const ENTRY_FLAG_GLOBAL: usize = 1 << 8;
     const ENTRY_FLAG_NO_GLOBAL: usize = 0;

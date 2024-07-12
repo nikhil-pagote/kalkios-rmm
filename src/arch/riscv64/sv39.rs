@@ -20,7 +20,8 @@ impl Arch for RiscV64Sv39Arch {
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
     const ENTRY_FLAG_READONLY: usize = 0;
     const ENTRY_FLAG_READWRITE: usize = 1 << 2;
-    const ENTRY_FLAG_USER: usize = 1 << 4;
+    const ENTRY_FLAG_PAGE_USER: usize = 1 << 4;
+    const ENTRY_FLAG_TABLE_USER: usize = 0;
     const ENTRY_FLAG_NO_EXEC: usize = 0;
     const ENTRY_FLAG_EXEC: usize = 1 << 3;
     const ENTRY_FLAG_GLOBAL: usize = 1 << 5;

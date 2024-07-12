@@ -72,12 +72,12 @@ impl<A: Arch> PageFlags<A> {
     #[must_use]
     #[inline(always)]
     pub fn user(self, value: bool) -> Self {
-        self.custom_flag(A::ENTRY_FLAG_USER, value)
+        self.custom_flag(A::ENTRY_FLAG_PAGE_USER, value)
     }
 
     #[inline(always)]
     pub fn has_user(&self) -> bool {
-        self.has_flag(A::ENTRY_FLAG_USER)
+        self.has_flag(A::ENTRY_FLAG_PAGE_USER)
     }
 
     #[must_use]
