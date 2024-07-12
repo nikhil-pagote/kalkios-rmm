@@ -30,7 +30,8 @@ pub trait Arch: Clone + Copy {
     const PAGE_ENTRY_SHIFT: usize;
     const PAGE_LEVELS: usize;
 
-    const ENTRY_ADDRESS_SHIFT: usize;
+    const ENTRY_ADDRESS_WIDTH: usize; // Number of bits of physical address in PTE
+    const ENTRY_ADDRESS_SHIFT: usize = Self::PAGE_SHIFT; // Offset of physical address in PTE
     const ENTRY_FLAG_DEFAULT_PAGE: usize;
     const ENTRY_FLAG_DEFAULT_TABLE: usize;
     const ENTRY_FLAG_PRESENT: usize;
@@ -55,10 +56,9 @@ pub trait Arch: Clone + Copy {
     const PAGE_ENTRY_MASK: usize = Self::PAGE_ENTRIES - 1;
     const PAGE_NEGATIVE_MASK: usize = !(Self::PAGE_ADDRESS_SIZE - 1) as usize;
 
-    const ENTRY_ADDRESS_SIZE: u64 = 1 << Self::ENTRY_ADDRESS_SHIFT;
-    const ENTRY_ADDRESS_MASK: usize =
-        (Self::ENTRY_ADDRESS_SIZE - (Self::PAGE_SIZE as u64)) as usize;
-    const ENTRY_FLAGS_MASK: usize = !Self::ENTRY_ADDRESS_MASK;
+    const ENTRY_ADDRESS_SIZE: usize = 1 << Self::ENTRY_ADDRESS_WIDTH; // size of addressable physical memory, in pages
+    const ENTRY_ADDRESS_MASK: usize = Self::ENTRY_ADDRESS_SIZE - 1; // Mask of physical address, starting at 0th bit
+    const ENTRY_FLAGS_MASK: usize = !(Self::ENTRY_ADDRESS_MASK << Self::ENTRY_ADDRESS_SHIFT);
 
     unsafe fn init() -> &'static [MemoryArea];
 

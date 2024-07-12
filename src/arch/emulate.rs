@@ -29,6 +29,8 @@ impl Arch for EmulateArch {
     const ENTRY_FLAG_GLOBAL: usize = X8664Arch::ENTRY_FLAG_GLOBAL;
     const ENTRY_FLAG_NO_GLOBAL: usize = X8664Arch::ENTRY_FLAG_NO_GLOBAL;
 
+    const ENTRY_ADDRESS_WIDTH: usize = X8664Arch::ENTRY_ADDRESS_WIDTH;
+
     unsafe fn init() -> &'static [MemoryArea] {
         // Create machine with PAGE_ENTRIES pages offset mapped (2 MiB on x86_64)
         let mut machine = Machine::new(MEMORY_SIZE);
@@ -275,7 +277,7 @@ impl<A: Arch> Machine<A> {
             }
 
             // Page directory pointer
-            let a3 = e3 & A::ENTRY_ADDRESS_MASK;
+            let a3 = ((e3 >> A::ENTRY_ADDRESS_SHIFT) & A::ENTRY_ADDRESS_MASK) << A::PAGE_SHIFT;
             for i3 in 0..A::PAGE_ENTRIES {
                 let e2 =
                     self.read_phys::<usize>(PhysicalAddress::new(a3 + i3 * A::PAGE_ENTRY_SIZE));
@@ -285,7 +287,7 @@ impl<A: Arch> Machine<A> {
                 }
 
                 // Page directory
-                let a2 = e2 & A::ENTRY_ADDRESS_MASK;
+                let a2 = ((e2 >> A::ENTRY_ADDRESS_SHIFT) & A::ENTRY_ADDRESS_MASK) << A::PAGE_SHIFT;
                 for i2 in 0..A::PAGE_ENTRIES {
                     let e1 =
                         self.read_phys::<usize>(PhysicalAddress::new(a2 + i2 * A::PAGE_ENTRY_SIZE));
@@ -295,7 +297,8 @@ impl<A: Arch> Machine<A> {
                     }
 
                     // Page table
-                    let a1 = e1 & A::ENTRY_ADDRESS_MASK;
+                    let a1 =
+                        ((e1 >> A::ENTRY_ADDRESS_SHIFT) & A::ENTRY_ADDRESS_MASK) << A::PAGE_SHIFT;
                     for i1 in 0..A::PAGE_ENTRIES {
                         let e = self
                             .read_phys::<usize>(PhysicalAddress::new(a1 + i1 * A::PAGE_ENTRY_SIZE));
@@ -308,7 +311,7 @@ impl<A: Arch> Machine<A> {
                         let page = (i4 << 39) | (i3 << 30) | (i2 << 21) | (i1 << 12);
                         //println!("map 0x{:X} to 0x{:X}, 0x{:X}", page, a, f);
                         self.map
-                            .insert(VirtualAddress::new(page), PageEntry::new(e));
+                            .insert(VirtualAddress::new(page), PageEntry::from_data(e));
                     }
                 }
             }

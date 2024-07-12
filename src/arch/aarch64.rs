@@ -11,7 +11,7 @@ impl Arch for AArch64Arch {
     const PAGE_LEVELS: usize = 4; // L0, L1, L2, L3
 
     //TODO
-    const ENTRY_ADDRESS_SHIFT: usize = 52;
+    const ENTRY_ADDRESS_WIDTH: usize = 40;
     const ENTRY_FLAG_DEFAULT_PAGE: usize = Self::ENTRY_FLAG_PRESENT
         | 1 << 1 // Page flag
         | 1 << 10 // Access flag
@@ -110,8 +110,8 @@ mod tests {
         assert_eq!(AArch64Arch::PAGE_ENTRY_MASK, 0x1FF);
         assert_eq!(AArch64Arch::PAGE_NEGATIVE_MASK, 0xFFFF_0000_0000_0000);
 
-        assert_eq!(AArch64Arch::ENTRY_ADDRESS_SIZE, 0x0010_0000_0000_0000);
-        assert_eq!(AArch64Arch::ENTRY_ADDRESS_MASK, 0x000F_FFFF_FFFF_F000);
+        assert_eq!(AArch64Arch::ENTRY_ADDRESS_SIZE, 0x0000_0100_0000_0000);
+        assert_eq!(AArch64Arch::ENTRY_ADDRESS_MASK, 0x0000_00FF_FFFF_FFFF);
         assert_eq!(AArch64Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
 
         assert_eq!(AArch64Arch::PHYS_OFFSET, 0xFFFF_8000_0000_0000);

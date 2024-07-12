@@ -11,7 +11,7 @@ impl Arch for X86Arch {
     const PAGE_ENTRY_SHIFT: usize = 10; // 1024 entries, 4 bytes each
     const PAGE_LEVELS: usize = 2; // PD, PT
 
-    const ENTRY_ADDRESS_SHIFT: usize = 32;
+    const ENTRY_ADDRESS_WIDTH: usize = 20;
     const ENTRY_FLAG_DEFAULT_PAGE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
@@ -70,8 +70,8 @@ mod tests {
         assert_eq!(X86Arch::PAGE_ENTRY_MASK, 0x3FF);
         assert_eq!(X86Arch::PAGE_NEGATIVE_MASK, 0x0000_0000_0000);
 
-        assert_eq!(X86Arch::ENTRY_ADDRESS_SIZE, 0x0000_0001_0000_0000);
-        assert_eq!(X86Arch::ENTRY_ADDRESS_MASK, 0xFFFF_F000);
+        assert_eq!(X86Arch::ENTRY_ADDRESS_SIZE, 0x0000_0000_0010_0000);
+        assert_eq!(X86Arch::ENTRY_ADDRESS_MASK, 0x000F_FFFF);
         assert_eq!(X86Arch::ENTRY_FLAGS_MASK, 0x0000_0FFF);
 
         assert_eq!(X86Arch::PHYS_OFFSET, 0x8000_0000);

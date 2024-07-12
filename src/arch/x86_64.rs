@@ -10,7 +10,7 @@ impl Arch for X8664Arch {
     const PAGE_ENTRY_SHIFT: usize = 9; // 512 entries, 8 bytes each
     const PAGE_LEVELS: usize = 4; // PML4, PDP, PD, PT
 
-    const ENTRY_ADDRESS_SHIFT: usize = 52;
+    const ENTRY_ADDRESS_WIDTH: usize = 40;
     const ENTRY_FLAG_DEFAULT_PAGE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
@@ -80,8 +80,8 @@ mod tests {
         assert_eq!(X8664Arch::PAGE_ENTRY_MASK, 0x1FF);
         assert_eq!(X8664Arch::PAGE_NEGATIVE_MASK, 0xFFFF_0000_0000_0000);
 
-        assert_eq!(X8664Arch::ENTRY_ADDRESS_SIZE, 0x0010_0000_0000_0000);
-        assert_eq!(X8664Arch::ENTRY_ADDRESS_MASK, 0x000F_FFFF_FFFF_F000);
+        assert_eq!(X8664Arch::ENTRY_ADDRESS_SIZE, 0x0000_0100_0000_0000);
+        assert_eq!(X8664Arch::ENTRY_ADDRESS_MASK, 0x0000_00FF_FFFF_FFFF);
         assert_eq!(X8664Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
 
         assert_eq!(X8664Arch::PHYS_OFFSET, 0xFFFF_8000_0000_0000);

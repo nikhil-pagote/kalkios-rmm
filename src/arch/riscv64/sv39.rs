@@ -10,8 +10,9 @@ impl Arch for RiscV64Sv39Arch {
     const PAGE_ENTRY_SHIFT: usize = 9; // 512 entries, 8 bytes each
     const PAGE_LEVELS: usize = 3; // L0, L1, L2
 
-    //TODO
-    const ENTRY_ADDRESS_SHIFT: usize = 52;
+    const ENTRY_ADDRESS_WIDTH: usize = 44;
+    const ENTRY_ADDRESS_SHIFT: usize = 10;
+
     const ENTRY_FLAG_DEFAULT_PAGE: usize
         = Self::ENTRY_FLAG_PRESENT
         | 1 << 1 // Read flag
@@ -27,7 +28,7 @@ impl Arch for RiscV64Sv39Arch {
     const ENTRY_FLAG_GLOBAL: usize = 1 << 5;
     const ENTRY_FLAG_NO_GLOBAL: usize = 0;
 
-    const PHYS_OFFSET: usize = 0xFFFF_8000_0000_0000;
+    const PHYS_OFFSET: usize = 0xFFFF_FFC0_0000_0000;
 
     unsafe fn init() -> &'static [MemoryArea] {
         unimplemented!("RiscV64Sv39Arch::init unimplemented");
@@ -44,7 +45,7 @@ impl Arch for RiscV64Sv39Arch {
         let satp: usize;
         asm!("csrr {0}, satp", out(reg) satp);
         PhysicalAddress::new(
-            (satp & 0x0000_0FFF_FFFF_FFFF) << Self::PAGE_SHIFT, // Convert from PPN
+            (satp & Self::ENTRY_ADDRESS_MASK) << Self::PAGE_SHIFT, // Convert from PPN
         )
     }
 
@@ -56,10 +57,10 @@ impl Arch for RiscV64Sv39Arch {
     }
 
     fn virt_is_valid(address: VirtualAddress) -> bool {
-        const MASK: usize = 0xFFFF_FFC0_0000_0000;
-        let masked = address.data() & MASK;
+        let mask = !((Self::PAGE_ADDRESS_SIZE as usize - 1) >> 1);
+        let masked = address.data() & mask;
 
-        masked == MASK || masked == 0
+        masked == mask || masked == 0
     }
 }
 
@@ -80,11 +81,11 @@ mod tests {
         assert_eq!(RiscV64Sv39Arch::PAGE_ENTRY_MASK, 0x1FF);
         assert_eq!(RiscV64Sv39Arch::PAGE_NEGATIVE_MASK, 0xFFFF_FF80_0000_0000);
 
-        assert_eq!(RiscV64Sv39Arch::ENTRY_ADDRESS_SIZE, 0x0010_0000_0000_0000);
-        assert_eq!(RiscV64Sv39Arch::ENTRY_ADDRESS_MASK, 0x000F_FFFF_FFFF_F000);
-        assert_eq!(RiscV64Sv39Arch::ENTRY_FLAGS_MASK, 0xFFF0_0000_0000_0FFF);
+        assert_eq!(RiscV64Sv39Arch::ENTRY_ADDRESS_SIZE, 0x0000_1000_0000_0000);
+        assert_eq!(RiscV64Sv39Arch::ENTRY_ADDRESS_MASK, 0x0000_0FFF_FFFF_FFFF);
+        assert_eq!(RiscV64Sv39Arch::ENTRY_FLAGS_MASK, 0xFFC0_0000_0000_03FF);
 
-        assert_eq!(RiscV64Sv39Arch::PHYS_OFFSET, 0xFFFF_8000_0000_0000);
+        assert_eq!(RiscV64Sv39Arch::PHYS_OFFSET, 0xFFFF_FFC0_0000_0000);
     }
     #[test]
     fn is_canonical() {
