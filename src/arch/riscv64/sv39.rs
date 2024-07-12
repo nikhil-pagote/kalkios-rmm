@@ -32,9 +32,13 @@ impl Arch for RiscV64Sv39Arch {
     }
 
     #[inline(always)]
-    unsafe fn invalidate(_address: VirtualAddress) {
-        //TODO: can one address be invalidated?
-        Self::invalidate_all();
+    unsafe fn invalidate(address: VirtualAddress) {
+        asm!("sfence.vma {}", in(reg) address.data());
+    }
+
+    #[inline(always)]
+    unsafe fn invalidate_all() {
+        asm!("sfence.vma");
     }
 
     #[inline(always)]
@@ -51,6 +55,7 @@ impl Arch for RiscV64Sv39Arch {
         let satp = (8 << 60) | // Sv39 MODE
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
         asm!("csrw satp, {0}", in(reg) satp);
+        Self::invalidate_all();
     }
 
     fn virt_is_valid(address: VirtualAddress) -> bool {
