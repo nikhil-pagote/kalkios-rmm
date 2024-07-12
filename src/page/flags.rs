@@ -27,10 +27,7 @@ impl<A: Arch> PageFlags<A> {
         unsafe {
             Self::from_data(
                 // Flags set to present, kernel space, read-only, no-execute by default
-                A::ENTRY_FLAG_DEFAULT_TABLE
-                    | A::ENTRY_FLAG_READONLY
-                    | A::ENTRY_FLAG_NO_EXEC
-                    | A::ENTRY_FLAG_NO_GLOBAL,
+                A::ENTRY_FLAG_DEFAULT_TABLE | A::ENTRY_FLAG_NO_EXEC | A::ENTRY_FLAG_NO_GLOBAL,
             )
         }
     }
@@ -83,14 +80,19 @@ impl<A: Arch> PageFlags<A> {
     #[must_use]
     #[inline(always)]
     pub fn write(self, value: bool) -> Self {
-        // Architecture may use readonly or readwrite, support either
-        self.custom_flag(A::ENTRY_FLAG_READONLY, !value)
-            .custom_flag(A::ENTRY_FLAG_READWRITE, value)
+        // Architecture may use readonly or readwrite, or both, support either
+        if value {
+            self.custom_flag(A::ENTRY_FLAG_READONLY | A::ENTRY_FLAG_READWRITE, false)
+                .custom_flag(A::ENTRY_FLAG_READWRITE, true)
+        } else {
+            self.custom_flag(A::ENTRY_FLAG_READONLY | A::ENTRY_FLAG_READWRITE, false)
+                .custom_flag(A::ENTRY_FLAG_READONLY, true)
+        }
     }
 
     #[inline(always)]
     pub fn has_write(&self) -> bool {
-        // Architecture may use readonly or readwrite, support either
+        // Architecture may use readonly or readwrite, or both, support either
         self.data & (A::ENTRY_FLAG_READONLY | A::ENTRY_FLAG_READWRITE) == A::ENTRY_FLAG_READWRITE
     }
 

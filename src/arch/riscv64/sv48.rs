@@ -13,14 +13,11 @@ impl Arch for RiscV64Sv48Arch {
     const ENTRY_ADDRESS_WIDTH: usize = 44;
     const ENTRY_ADDRESS_SHIFT: usize = 10;
 
-    const ENTRY_FLAG_DEFAULT_PAGE: usize
-        = Self::ENTRY_FLAG_PRESENT
-        | 1 << 1 // Read flag
-        ;
+    const ENTRY_FLAG_DEFAULT_PAGE: usize = Self::ENTRY_FLAG_PRESENT | Self::ENTRY_FLAG_READONLY;
     const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
-    const ENTRY_FLAG_READONLY: usize = 0;
-    const ENTRY_FLAG_READWRITE: usize = 1 << 2;
+    const ENTRY_FLAG_READONLY: usize = 1 << 1;
+    const ENTRY_FLAG_READWRITE: usize = 3 << 1;
     const ENTRY_FLAG_PAGE_USER: usize = 1 << 4;
     const ENTRY_FLAG_TABLE_USER: usize = 0;
     const ENTRY_FLAG_NO_EXEC: usize = 0;

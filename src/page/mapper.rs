@@ -120,8 +120,7 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
                     None => {
                         let next_phys = self.allocator.allocate_one()?;
                         //TODO: correct flags?
-                        let flags = A::ENTRY_FLAG_READWRITE
-                            | A::ENTRY_FLAG_DEFAULT_TABLE
+                        let flags = A::ENTRY_FLAG_DEFAULT_TABLE
                             | if virt.kind() == TableKind::User {
                                 A::ENTRY_FLAG_TABLE_USER
                             } else {

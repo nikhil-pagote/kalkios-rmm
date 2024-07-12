@@ -18,6 +18,7 @@ impl Arch for AArch64Arch {
         | Self::ENTRY_FLAG_NO_GLOBAL;
     const ENTRY_FLAG_DEFAULT_TABLE: usize
         = Self::ENTRY_FLAG_PRESENT
+        | Self::ENTRY_FLAG_READWRITE
         | 1 << 1 // Table flag
         | 1 << 10 // Access flag
         ;

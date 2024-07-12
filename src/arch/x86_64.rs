@@ -12,7 +12,7 @@ impl Arch for X8664Arch {
 
     const ENTRY_ADDRESS_WIDTH: usize = 40;
     const ENTRY_FLAG_DEFAULT_PAGE: usize = Self::ENTRY_FLAG_PRESENT;
-    const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT;
+    const ENTRY_FLAG_DEFAULT_TABLE: usize = Self::ENTRY_FLAG_PRESENT | Self::ENTRY_FLAG_READWRITE;
     const ENTRY_FLAG_PRESENT: usize = 1 << 0;
     const ENTRY_FLAG_READONLY: usize = 0;
     const ENTRY_FLAG_READWRITE: usize = 1 << 1;
