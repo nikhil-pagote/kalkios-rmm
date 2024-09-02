@@ -1,12 +1,6 @@
 use core::arch::asm;
 
-use crate::{
-    Arch,
-    MemoryArea,
-    PhysicalAddress,
-    TableKind,
-    VirtualAddress,
-};
+use crate::{Arch, MemoryArea, PhysicalAddress, TableKind, VirtualAddress};
 
 #[derive(Clone, Copy)]
 pub struct AArch64Arch;
@@ -18,12 +12,10 @@ impl Arch for AArch64Arch {
 
     //TODO
     const ENTRY_ADDRESS_SHIFT: usize = 52;
-    const ENTRY_FLAG_DEFAULT_PAGE: usize
-        = Self::ENTRY_FLAG_PRESENT
+    const ENTRY_FLAG_DEFAULT_PAGE: usize = Self::ENTRY_FLAG_PRESENT
         | 1 << 1 // Page flag
         | 1 << 10 // Access flag
-        | Self::ENTRY_FLAG_NO_GLOBAL
-        ;
+        | Self::ENTRY_FLAG_NO_GLOBAL;
     const ENTRY_FLAG_DEFAULT_TABLE: usize
         = Self::ENTRY_FLAG_PRESENT
         | 1 << 1 // Table flag
@@ -58,12 +50,14 @@ impl Arch for AArch64Arch {
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        asm!("
+        asm!(
+            "
             dsb ishst
             tlbi vmalle1is
             dsb ish
             isb
-        ");
+        "
+        );
     }
 
     #[inline(always)]
@@ -72,7 +66,7 @@ impl Arch for AArch64Arch {
         match table_kind {
             TableKind::User => {
                 asm!("mrs {0}, ttbr0_el1", out(reg) address);
-            },
+            }
             TableKind::Kernel => {
                 asm!("mrs {0}, ttbr1_el1", out(reg) address);
             }
@@ -85,7 +79,7 @@ impl Arch for AArch64Arch {
         match table_kind {
             TableKind::User => {
                 asm!("msr ttbr0_el1, {0}", in(reg) address.data());
-            },
+            }
             TableKind::Kernel => {
                 asm!("msr ttbr1_el1, {0}", in(reg) address.data());
             }
@@ -101,8 +95,8 @@ impl Arch for AArch64Arch {
 
 #[cfg(test)]
 mod tests {
-    use crate::Arch;
     use super::AArch64Arch;
+    use crate::Arch;
 
     #[test]
     fn constants() {

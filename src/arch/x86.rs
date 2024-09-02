@@ -1,13 +1,7 @@
 //TODO: USE PAE
 use core::arch::asm;
 
-use crate::{
-    Arch,
-    MemoryArea,
-    PhysicalAddress,
-    TableKind,
-    VirtualAddress,
-};
+use crate::{Arch, MemoryArea, PhysicalAddress, TableKind, VirtualAddress};
 
 #[derive(Clone, Copy)]
 pub struct X86Arch;
@@ -61,8 +55,8 @@ impl Arch for X86Arch {
 
 #[cfg(test)]
 mod tests {
-    use crate::Arch;
     use super::{VirtualAddress, X86Arch};
+    use crate::Arch;
 
     #[test]
     fn constants() {

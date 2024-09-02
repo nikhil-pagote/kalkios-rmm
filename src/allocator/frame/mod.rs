@@ -1,7 +1,6 @@
 use crate::PhysicalAddress;
 
-pub use self::buddy::*;
-pub use self::bump::*;
+pub use self::{buddy::*, bump::*};
 
 mod buddy;
 mod bump;
@@ -30,7 +29,7 @@ impl FrameUsage {
     pub fn new(used: FrameCount, total: FrameCount) -> Self {
         Self { used, total }
     }
-    
+
     pub fn used(&self) -> FrameCount {
         self.used
     }
@@ -60,7 +59,10 @@ pub trait FrameAllocator {
     unsafe fn usage(&self) -> FrameUsage;
 }
 
-impl<T> FrameAllocator for &mut T where T: FrameAllocator {
+impl<T> FrameAllocator for &mut T
+where
+    T: FrameAllocator,
+{
     unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
         T::allocate(self, count)
     }

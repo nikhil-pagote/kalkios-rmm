@@ -1,12 +1,6 @@
-use core::{
-    marker::PhantomData,
-    mem,
-};
+use core::{marker::PhantomData, mem};
 
-use crate::{
-    Arch,
-    VirtualAddress,
-};
+use crate::{Arch, VirtualAddress};
 
 pub trait Flusher<A> {
     fn consume(&mut self, flush: PageFlush<A>);
@@ -27,7 +21,9 @@ impl<A: Arch> PageFlush<A> {
     }
 
     pub fn flush(self) {
-        unsafe { A::invalidate(self.virt); }
+        unsafe {
+            A::invalidate(self.virt);
+        }
     }
 
     pub unsafe fn ignore(self) {
@@ -41,7 +37,7 @@ pub struct PageFlushAll<A: Arch> {
     phantom: PhantomData<fn() -> A>,
 }
 
-impl <A: Arch> PageFlushAll<A> {
+impl<A: Arch> PageFlushAll<A> {
     pub fn new() -> Self {
         Self {
             phantom: PhantomData,
@@ -56,12 +52,16 @@ impl <A: Arch> PageFlushAll<A> {
 }
 impl<A: Arch> Drop for PageFlushAll<A> {
     fn drop(&mut self) {
-        unsafe { A::invalidate_all(); }
+        unsafe {
+            A::invalidate_all();
+        }
     }
 }
 impl<A: Arch> Flusher<A> for PageFlushAll<A> {
     fn consume(&mut self, flush: PageFlush<A>) {
-        unsafe { flush.ignore(); }
+        unsafe {
+            flush.ignore();
+        }
     }
 }
 impl<A: Arch, T: Flusher<A> + ?Sized> Flusher<A> for &mut T {

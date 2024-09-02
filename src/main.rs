@@ -1,24 +1,11 @@
 #![cfg(target_pointer_width = "64")]
 
 use rmm::{
-    KILOBYTE,
-    MEGABYTE,
-    GIGABYTE,
-    TERABYTE,
-    Arch,
-    BuddyAllocator,
-    BumpAllocator,
-    EmulateArch,
-    FrameAllocator,
-    FrameCount,
-    MemoryArea,
-    PageFlags,
-    PageFlushAll,
-    PageMapper,
-    PageTable,
-    PhysicalAddress,
-    VirtualAddress,
+    Arch, BuddyAllocator, BumpAllocator, EmulateArch, Flusher, FrameAllocator, FrameCount,
+    MemoryArea, PageFlags, PageFlushAll, PageMapper, PageTable, PhysicalAddress, TableKind,
+    VirtualAddress, GIGABYTE, KILOBYTE, MEGABYTE, TERABYTE,
 };
+use std::marker::PhantomData;
 
 pub fn format_size(size: usize) -> String {
     if size >= 2 * TERABYTE {
@@ -34,6 +21,7 @@ pub fn format_size(size: usize) -> String {
     }
 }
 
+#[allow(dead_code)]
 unsafe fn dump_tables<A: Arch>(table: PageTable<A>) {
     let level = table.level();
     for i in 0..A::PAGE_ENTRIES {
@@ -41,7 +29,11 @@ unsafe fn dump_tables<A: Arch>(table: PageTable<A>) {
             if let Some(entry) = table.entry(i) {
                 if entry.present() {
                     let base = table.entry_base(i).unwrap();
-                    println!("0x{:X}: 0x{:X}", base.data(), entry.address().data());
+                    println!(
+                        "0x{:X}: 0x{:X}",
+                        base.data(),
+                        entry.address().unwrap().data()
+                    );
                 }
             }
         } else {
@@ -179,18 +171,15 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
 
     {
         // Map all physical areas at PHYS_OFFSET
-        let mut mapper = PageMapper::<A, _>::create(
-            &mut bump_allocator
-        ).expect("failed to create Mapper");
+        let mut mapper = PageMapper::<A, _>::create(TableKind::Kernel, &mut bump_allocator)
+            .expect("failed to create Mapper");
         for area in areas.iter() {
             for i in 0..area.size / A::PAGE_SIZE {
                 let phys = area.base.add(i * A::PAGE_SIZE);
                 let virt = A::phys_to_virt(phys);
-                let flush = mapper.map_phys(
-                    virt,
-                    phys,
-                    PageFlags::<A>::new().write(true)
-                ).expect("failed to map page to frame");
+                let flush = mapper
+                    .map_phys(virt, phys, PageFlags::<A>::new().write(true))
+                    .expect("failed to map page to frame");
                 flush.ignore(); // Not the active table
             }
         }
@@ -229,35 +218,39 @@ unsafe fn new_tables<A: Arch>(areas: &'static [MemoryArea]) {
         }
     }
 
-    let mut mapper = PageMapper::<A, _>::current(
-        &mut allocator
-    );
-    let flush_all = PageFlushAll::new();
+    let mut mapper = PageMapper::<A, _>::current(TableKind::Kernel, &mut allocator);
+    let mut flush_all = PageFlushAll::new();
     for i in 0..16 {
         let virt = VirtualAddress::new(MEGABYTE + i * A::PAGE_SIZE);
-        let flush = mapper.map(
-            virt,
-            PageFlags::<A>::new().user(true).write(true)
-        ).expect("failed to map page");
+        let flush = mapper
+            .map(virt, PageFlags::<A>::new().user(true).write(true))
+            .expect("failed to map page");
         flush_all.consume(flush);
     }
     flush_all.flush();
 
-    let flush_all = PageFlushAll::new();
+    let mut flush_all = PageFlushAll::new();
     for i in 0..16 {
         let virt = VirtualAddress::new(MEGABYTE + i * A::PAGE_SIZE);
-        let flush = mapper.unmap(
-            virt,
-        ).expect("failed to unmap page");
+        let flush = mapper.unmap(virt, false).expect("failed to unmap page");
         flush_all.consume(flush);
     }
     flush_all.flush();
 
     let usage = allocator.usage();
     println!("Allocator usage:");
-    println!("  Used: {}", format_size(usage.used().data() * A::PAGE_SIZE));
-    println!("  Free: {}", format_size(usage.free().data() * A::PAGE_SIZE));
-    println!("  Total: {}", format_size(usage.total().data() * A::PAGE_SIZE));
+    println!(
+        "  Used: {}",
+        format_size(usage.used().data() * A::PAGE_SIZE)
+    );
+    println!(
+        "  Free: {}",
+        format_size(usage.free().data() * A::PAGE_SIZE)
+    );
+    println!(
+        "  Total: {}",
+        format_size(usage.total().data() * A::PAGE_SIZE)
+    );
 }
 
 unsafe fn inner<A: Arch>() {
@@ -270,19 +263,28 @@ unsafe fn inner<A: Arch>() {
 
     //dump_tables(PageTable::<A>::top());
 
-
     for i in &[1, 2, 4, 8, 16, 32] {
         let phys = PhysicalAddress::new(i * MEGABYTE);
         let virt = A::phys_to_virt(phys);
 
         // Test read
-        println!("0x{:X} (0x{:X}) = 0x{:X}", virt.data(), phys.data(), A::read::<u8>(virt));
+        println!(
+            "0x{:X} (0x{:X}) = 0x{:X}",
+            virt.data(),
+            phys.data(),
+            A::read::<u8>(virt)
+        );
 
         // Test write
         A::write::<u8>(virt, 0x5A);
 
         // Test read
-        println!("0x{:X} (0x{:X}) = 0x{:X}", virt.data(), phys.data(), A::read::<u8>(virt));
+        println!(
+            "0x{:X} (0x{:X}) = 0x{:X}",
+            virt.data(),
+            phys.data(),
+            A::read::<u8>(virt)
+        );
     }
 }
 

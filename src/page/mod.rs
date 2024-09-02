@@ -1,10 +1,4 @@
-pub use self::{
-    entry::*,
-    flags::*,
-    flush::*,
-    mapper::*,
-    table::*,
-};
+pub use self::{entry::*, flags::*, flush::*, mapper::*, table::*};
 
 mod entry;
 mod flags;
