@@ -7,7 +7,7 @@ use crate::{
 #[repr(transparent)]
 struct BuddyUsage(u8);
 
-#[repr(packed)]
+#[repr(C, packed)]
 struct BuddyEntry<A> {
     base: PhysicalAddress,
     size: usize,
