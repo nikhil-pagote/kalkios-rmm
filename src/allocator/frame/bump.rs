@@ -2,77 +2,59 @@ use core::marker::PhantomData;
 
 use crate::{Arch, FrameAllocator, FrameCount, FrameUsage, MemoryArea, PhysicalAddress};
 
+#[derive(Debug)]
 pub struct BumpAllocator<A> {
-    areas: &'static [MemoryArea],
-    offset: usize,
-    abs_offset: PhysicalAddress,
+    orig_areas: (&'static [MemoryArea], usize),
+    cur_areas: (&'static [MemoryArea], usize),
     _marker: PhantomData<fn() -> A>,
 }
 
 impl<A: Arch> BumpAllocator<A> {
-    pub fn new(areas: &'static [MemoryArea], _offset: usize) -> Self {
+    pub fn new(mut areas: &'static [MemoryArea], mut offset: usize) -> Self {
+        while let Some(first) = areas.first() && first.size <= offset {
+            offset -= first.size;
+            areas = &areas[1..];
+        }
+
         Self {
-            areas,
-            offset: 0,
-            abs_offset: areas[0].base,
+            orig_areas: (areas, offset),
+            cur_areas: (areas, offset),
             _marker: PhantomData,
         }
     }
     pub fn areas(&self) -> &'static [MemoryArea] {
-        self.areas
+        todo!()
     }
     /// Returns one semifree and the fully free areas. The offset is the number of bytes after
     /// which the first area is free.
     pub fn free_areas(&self) -> (&'static [MemoryArea], usize) {
-        let mut areas = self.areas;
-        let mut offset = self.offset;
-
-        loop {
-            let Some(area) = areas.first() else {
-                return (&[], 0);
-            };
-
-            if offset > area.size {
-                areas = &areas[1..];
-                offset -= area.size;
-            } else {
-                return (areas, offset);
-            }
-        }
+        self.cur_areas
     }
     pub fn abs_offset(&self) -> PhysicalAddress {
-        self.abs_offset
+        let (areas, off) = self.cur_areas;
+        areas.first().map_or(PhysicalAddress::new(0), |a| a.base.add(off))
     }
-
     pub fn offset(&self) -> usize {
-        self.offset
+        (unsafe { self.usage().total().data() - self.usage().free().data() }) * A::PAGE_SIZE
     }
 }
 
 impl<A: Arch> FrameAllocator for BumpAllocator<A> {
     unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
-        let mut offset = self.offset;
-        for area in self.areas.iter() {
-            if offset < area.size {
-                if area.size - offset < count.data() * A::PAGE_SIZE {
-                    // The area may be too small for this alloc request. In that case, skip to the
-                    // next area.
-                    self.offset += area.size - offset;
-                    offset = 0;
-                    continue;
-                }
+        let req_size = count.data() * A::PAGE_SIZE;
 
-                let page_phys = area.base.add(offset);
-                let page_virt = A::phys_to_virt(page_phys);
-                A::write_bytes(page_virt, 0, count.data() * A::PAGE_SIZE);
-                self.offset += count.data() * A::PAGE_SIZE;
-
-                self.abs_offset = page_phys;
-                return Some(page_phys);
+        let block = loop {
+            let area = self.cur_areas.0.first()?;
+            let off = self.cur_areas.1;
+            if area.size - off <= req_size {
+                self.cur_areas = (&self.cur_areas.0[1..], 0);
             }
-            offset -= area.size;
-        }
-        None
+            self.cur_areas.1 += req_size;
+
+            break area.base.add(off);
+        };
+        A::write_bytes(A::phys_to_virt(block), 0, req_size);
+        Some(block)
     }
 
     unsafe fn free(&mut self, _address: PhysicalAddress, _count: FrameCount) {
@@ -80,11 +62,8 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
     }
 
     unsafe fn usage(&self) -> FrameUsage {
-        let mut total = 0;
-        for area in self.areas.iter() {
-            total += area.size >> A::PAGE_SHIFT;
-        }
-        let used = self.offset >> A::PAGE_SHIFT;
-        FrameUsage::new(FrameCount::new(used), FrameCount::new(total))
+        let total = self.orig_areas.0.iter().map(|a| a.size).sum::<usize>() - self.orig_areas.1;
+        let free = self.cur_areas.0.iter().map(|a| a.size).sum::<usize>() - self.cur_areas.1;
+        FrameUsage::new(FrameCount::new(total - free), FrameCount::new(total))
     }
 }
