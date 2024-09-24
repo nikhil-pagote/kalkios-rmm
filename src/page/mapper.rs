@@ -65,7 +65,7 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
             let old_flags = old_entry.flags();
             let (new_phys, new_flags) = f(old_phys, old_flags);
             // TODO: Higher-level PageEntry::new interface?
-            let new_entry = PageEntry::new(new_phys.data() | new_flags.data());
+            let new_entry = PageEntry::new(new_phys.data(), new_flags.data());
             p1.set_entry(i, new_entry);
             Some((old_flags, old_phys, PageFlush::new(virt)))
         })
@@ -105,7 +105,7 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
     ) -> Option<PageFlush<A>> {
         //TODO: verify virt and phys are aligned
         //TODO: verify flags have correct bits
-        let entry = PageEntry::new(phys.data() | flags.data());
+        let entry = PageEntry::new(phys.data(), flags.data());
         let mut table = self.table();
         loop {
             let i = table.index_of(virt)?;
@@ -120,14 +120,13 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
                     None => {
                         let next_phys = self.allocator.allocate_one()?;
                         //TODO: correct flags?
-                        let flags = A::ENTRY_FLAG_READWRITE
-                            | A::ENTRY_FLAG_DEFAULT_TABLE
+                        let flags = A::ENTRY_FLAG_DEFAULT_TABLE
                             | if virt.kind() == TableKind::User {
-                                A::ENTRY_FLAG_USER
+                                A::ENTRY_FLAG_TABLE_USER
                             } else {
                                 0
                             };
-                        table.set_entry(i, PageEntry::new(next_phys.data() | flags));
+                        table.set_entry(i, PageEntry::new(next_phys.data(), flags));
                         table.next(i)?
                     }
                 };
@@ -198,7 +197,7 @@ unsafe fn unmap_phys_inner<A: Arch>(
 
     if table.level() == 0 {
         let entry_opt = table.entry(i);
-        table.set_entry(i, PageEntry::new(0));
+        table.set_entry(i, PageEntry::new(0, 0));
         let entry = entry_opt?;
 
         Some((entry.address().ok()?, entry.flags()))
@@ -218,7 +217,7 @@ unsafe fn unmap_phys_inner<A: Arch>(
 
             if !is_still_populated {
                 allocator.free_one(subtable.phys());
-                table.set_entry(i, PageEntry::new(0));
+                table.set_entry(i, PageEntry::new(0, 0));
             }
         }
 

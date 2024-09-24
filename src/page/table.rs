@@ -72,7 +72,7 @@ impl<A: Arch> PageTable<A> {
 
     pub unsafe fn entry(&self, i: usize) -> Option<PageEntry<A>> {
         let addr = self.entry_virt(i)?;
-        Some(PageEntry::new(A::read::<usize>(addr)))
+        Some(PageEntry::from_data(A::read::<usize>(addr)))
     }
 
     pub unsafe fn set_entry(&mut self, i: usize, entry: PageEntry<A>) -> Option<()> {
