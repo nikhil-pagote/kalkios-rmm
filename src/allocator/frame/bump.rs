@@ -46,8 +46,9 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
         let block = loop {
             let area = self.cur_areas.0.first()?;
             let off = self.cur_areas.1;
-            if area.size - off <= req_size {
+            if area.size - off < req_size {
                 self.cur_areas = (&self.cur_areas.0[1..], 0);
+                continue;
             }
             self.cur_areas.1 += req_size;
 
@@ -64,6 +65,6 @@ impl<A: Arch> FrameAllocator for BumpAllocator<A> {
     unsafe fn usage(&self) -> FrameUsage {
         let total = self.orig_areas.0.iter().map(|a| a.size).sum::<usize>() - self.orig_areas.1;
         let free = self.cur_areas.0.iter().map(|a| a.size).sum::<usize>() - self.cur_areas.1;
-        FrameUsage::new(FrameCount::new(total - free), FrameCount::new(total))
+        FrameUsage::new(FrameCount::new((total - free) / A::PAGE_SIZE), FrameCount::new(total / A::PAGE_SIZE))
     }
 }
