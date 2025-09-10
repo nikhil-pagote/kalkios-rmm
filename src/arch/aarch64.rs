@@ -42,51 +42,59 @@ impl Arch for AArch64Arch {
 
     #[inline(always)]
     unsafe fn invalidate(address: VirtualAddress) {
-        asm!("
+        unsafe {
+            asm!("
             dsb ishst
             tlbi vaae1is, {}
             dsb ish
             isb
         ", in(reg) (address.data() >> Self::PAGE_SHIFT));
+        }
     }
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        asm!(
-            "
+        unsafe {
+            asm!(
+                "
             dsb ishst
             tlbi vmalle1is
             dsb ish
             isb
         "
-        );
+            );
+        }
     }
 
     #[inline(always)]
     unsafe fn table(table_kind: TableKind) -> PhysicalAddress {
-        let address: usize;
-        match table_kind {
-            TableKind::User => {
-                asm!("mrs {0}, ttbr0_el1", out(reg) address);
+        unsafe {
+            let address: usize;
+            match table_kind {
+                TableKind::User => {
+                    asm!("mrs {0}, ttbr0_el1", out(reg) address);
+                }
+                TableKind::Kernel => {
+                    asm!("mrs {0}, ttbr1_el1", out(reg) address);
+                }
             }
-            TableKind::Kernel => {
-                asm!("mrs {0}, ttbr1_el1", out(reg) address);
-            }
+            PhysicalAddress::new(address)
         }
-        PhysicalAddress::new(address)
     }
 
     #[inline(always)]
     unsafe fn set_table(table_kind: TableKind, address: PhysicalAddress) {
-        match table_kind {
-            TableKind::User => {
-                asm!("msr ttbr0_el1, {0}", in(reg) address.data());
+        unsafe {
+            match table_kind {
+                TableKind::User => {
+                    asm!("msr ttbr0_el1, {0}", in(reg) address.data());
+                }
+                TableKind::Kernel => {
+                    asm!("msr ttbr1_el1, {0}", in(reg) address.data());
+                }
             }
-            TableKind::Kernel => {
-                asm!("msr ttbr1_el1, {0}", in(reg) address.data());
-            }
+            Self::invalidate_all();
         }
-        Self::invalidate_all();
     }
 
     fn virt_is_valid(_address: VirtualAddress) -> bool {

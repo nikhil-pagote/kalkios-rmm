@@ -34,29 +34,37 @@ impl Arch for RiscV64Sv48Arch {
 
     #[inline(always)]
     unsafe fn invalidate(address: VirtualAddress) {
-        asm!("sfence.vma {}", in(reg) address.data());
+        unsafe {
+            asm!("sfence.vma {}", in(reg) address.data());
+        }
     }
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        asm!("sfence.vma");
+        unsafe {
+            asm!("sfence.vma");
+        }
     }
 
     #[inline(always)]
     unsafe fn table(_table_kind: TableKind) -> PhysicalAddress {
-        let satp: usize;
-        asm!("csrr {0}, satp", out(reg) satp);
-        PhysicalAddress::new(
-            (satp & Self::ENTRY_ADDRESS_MASK) << Self::PAGE_SHIFT, // Convert from PPN
-        )
+        unsafe {
+            let satp: usize;
+            asm!("csrr {0}, satp", out(reg) satp);
+            PhysicalAddress::new(
+                (satp & Self::ENTRY_ADDRESS_MASK) << Self::PAGE_SHIFT, // Convert from PPN
+            )
+        }
     }
 
     #[inline(always)]
     unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
-        let satp = (9 << 60) | // Sv48 MODE
+        unsafe {
+            let satp = (9 << 60) | // Sv48 MODE
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
-        asm!("csrw satp, {0}", in(reg) satp);
-        Self::invalidate_all();
+            asm!("csrw satp, {0}", in(reg) satp);
+            Self::invalidate_all();
+        }
     }
 
     fn virt_is_valid(address: VirtualAddress) -> bool {
