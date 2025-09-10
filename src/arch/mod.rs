@@ -65,25 +65,27 @@ pub trait Arch: Clone + Copy {
 
     #[inline(always)]
     unsafe fn read<T>(address: VirtualAddress) -> T {
-        ptr::read(address.data() as *const T)
+        unsafe { ptr::read(address.data() as *const T) }
     }
 
     #[inline(always)]
     unsafe fn write<T>(address: VirtualAddress, value: T) {
-        ptr::write(address.data() as *mut T, value)
+        unsafe { ptr::write(address.data() as *mut T, value) }
     }
 
     #[inline(always)]
     unsafe fn write_bytes(address: VirtualAddress, value: u8, count: usize) {
-        ptr::write_bytes(address.data() as *mut u8, value, count)
+        unsafe { ptr::write_bytes(address.data() as *mut u8, value, count) }
     }
 
     unsafe fn invalidate(address: VirtualAddress);
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        //TODO: this stub only works on x86_64, maybe make the arch implement this?
-        Self::set_table(TableKind::User, Self::table(TableKind::User));
+        unsafe {
+            //TODO: this stub only works on x86_64, maybe make the arch implement this?
+            Self::set_table(TableKind::User, Self::table(TableKind::User));
+        }
     }
 
     unsafe fn table(table_kind: TableKind) -> PhysicalAddress;

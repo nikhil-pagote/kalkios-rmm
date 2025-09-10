@@ -34,76 +34,84 @@ impl Arch for EmulateArch {
     const ENTRY_FLAG_WRITE_COMBINING: usize = X8664Arch::ENTRY_FLAG_WRITE_COMBINING;
 
     unsafe fn init() -> &'static [MemoryArea] {
-        // Create machine with PAGE_ENTRIES pages offset mapped (2 MiB on x86_64)
-        let mut machine = Machine::new(MEMORY_SIZE);
+        unsafe {
+            // Create machine with PAGE_ENTRIES pages offset mapped (2 MiB on x86_64)
+            let mut machine = Machine::new(MEMORY_SIZE);
 
-        // PML4 index 256 (PHYS_OFFSET) link to PDP
-        let pml4 = 0;
-        let pdp = pml4 + Self::PAGE_SIZE;
-        let flags = Self::ENTRY_FLAG_READWRITE | Self::ENTRY_FLAG_PRESENT;
-        machine.write_phys::<usize>(
-            PhysicalAddress::new(pml4 + 256 * Self::PAGE_ENTRY_SIZE),
-            pdp | flags,
-        );
-
-        // PDP link to PD
-        let pd = pdp + Self::PAGE_SIZE;
-        machine.write_phys::<usize>(PhysicalAddress::new(pdp), pd | flags);
-
-        // PD link to PT
-        let pt = pd + Self::PAGE_SIZE;
-        machine.write_phys::<usize>(PhysicalAddress::new(pd), pt | flags);
-
-        // PT links to frames
-        for i in 0..Self::PAGE_ENTRIES {
-            let page = i * Self::PAGE_SIZE;
+            // PML4 index 256 (PHYS_OFFSET) link to PDP
+            let pml4 = 0;
+            let pdp = pml4 + Self::PAGE_SIZE;
+            let flags = Self::ENTRY_FLAG_READWRITE | Self::ENTRY_FLAG_PRESENT;
             machine.write_phys::<usize>(
-                PhysicalAddress::new(pt + i * Self::PAGE_ENTRY_SIZE),
-                page | flags,
+                PhysicalAddress::new(pml4 + 256 * Self::PAGE_ENTRY_SIZE),
+                pdp | flags,
             );
+
+            // PDP link to PD
+            let pd = pdp + Self::PAGE_SIZE;
+            machine.write_phys::<usize>(PhysicalAddress::new(pdp), pd | flags);
+
+            // PD link to PT
+            let pt = pd + Self::PAGE_SIZE;
+            machine.write_phys::<usize>(PhysicalAddress::new(pd), pt | flags);
+
+            // PT links to frames
+            for i in 0..Self::PAGE_ENTRIES {
+                let page = i * Self::PAGE_SIZE;
+                machine.write_phys::<usize>(
+                    PhysicalAddress::new(pt + i * Self::PAGE_ENTRY_SIZE),
+                    page | flags,
+                );
+            }
+
+            MACHINE = Some(machine);
+
+            // Set table to pml4
+            EmulateArch::set_table(TableKind::Kernel, PhysicalAddress::new(pml4));
+
+            &MEMORY_AREAS
         }
-
-        MACHINE = Some(machine);
-
-        // Set table to pml4
-        EmulateArch::set_table(TableKind::Kernel, PhysicalAddress::new(pml4));
-
-        &MEMORY_AREAS
     }
 
     #[inline(always)]
     unsafe fn read<T>(address: VirtualAddress) -> T {
-        MACHINE.as_ref().unwrap().read(address)
+        unsafe { MACHINE.as_ref().unwrap().read(address) }
     }
 
     #[inline(always)]
     unsafe fn write<T>(address: VirtualAddress, value: T) {
-        MACHINE.as_mut().unwrap().write(address, value)
+        unsafe { MACHINE.as_mut().unwrap().write(address, value) }
     }
 
     #[inline(always)]
     unsafe fn write_bytes(address: VirtualAddress, value: u8, count: usize) {
-        MACHINE.as_mut().unwrap().write_bytes(address, value, count)
+        unsafe { MACHINE.as_mut().unwrap().write_bytes(address, value, count) }
     }
 
     #[inline(always)]
     unsafe fn invalidate(address: VirtualAddress) {
-        MACHINE.as_mut().unwrap().invalidate(address);
+        unsafe {
+            MACHINE.as_mut().unwrap().invalidate(address);
+        }
     }
 
     #[inline(always)]
     unsafe fn invalidate_all() {
-        MACHINE.as_mut().unwrap().invalidate_all();
+        unsafe {
+            MACHINE.as_mut().unwrap().invalidate_all();
+        }
     }
 
     #[inline(always)]
     unsafe fn table(_table_kind: TableKind) -> PhysicalAddress {
-        MACHINE.as_mut().unwrap().get_table()
+        unsafe { MACHINE.as_mut().unwrap().get_table() }
     }
 
     #[inline(always)]
     unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
-        MACHINE.as_mut().unwrap().set_table(address);
+        unsafe {
+            MACHINE.as_mut().unwrap().set_table(address);
+        }
     }
     fn virt_is_valid(_address: VirtualAddress) -> bool {
         // TODO: Don't see why an emulated arch would have any problems with canonicalness...
