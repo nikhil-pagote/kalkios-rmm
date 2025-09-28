@@ -62,7 +62,6 @@ impl Arch for X8664Arch {
 }
 
 impl VirtualAddress {
-    #[doc(cfg(target_arch = "x86_64"))]
     pub fn is_canonical(self) -> bool {
         let masked = self.data() & 0xFFFF_8000_0000_0000;
         // TODO: 5-level paging
