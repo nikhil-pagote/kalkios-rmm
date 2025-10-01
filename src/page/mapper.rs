@@ -25,6 +25,8 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
     pub unsafe fn create(table_kind: TableKind, mut allocator: F) -> Option<Self> {
         unsafe {
             let table_addr = allocator.allocate_one()?;
+            // Ensure a clean root table: zero out to avoid random present bits
+            A::write_bytes(A::phys_to_virt(table_addr), 0, A::PAGE_SIZE);
             Some(Self::new(table_kind, table_addr, allocator))
         }
     }
@@ -132,6 +134,8 @@ impl<A: Arch, F: FrameAllocator> PageMapper<A, F> {
                         Some(some) => some,
                         None => {
                             let next_phys = self.allocator.allocate_one()?;
+                            // Zero the newly allocated subtable to avoid garbage entries
+                            A::write_bytes(A::phys_to_virt(next_phys), 0, A::PAGE_SIZE);
                             //TODO: correct flags?
                             let flags = A::ENTRY_FLAG_DEFAULT_TABLE
                                 | if virt.kind() == TableKind::User {
