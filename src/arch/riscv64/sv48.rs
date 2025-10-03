@@ -60,10 +60,143 @@ impl Arch for RiscV64Sv48Arch {
     #[inline(always)]
     unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
         unsafe {
+            // Debug instrumentation - print using SBI console
+            let msg = b"[RMM] set_table: calculating SATP\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
             let satp = (9 << 60) | // Sv48 MODE
             (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
-            asm!("csrw satp, {0}", in(reg) satp);
+
+            // Print SATP value for debugging
+            let msg = b"[RMM] SATP value: 0x";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+            for i in (0..16).rev() {
+                let nibble = ((satp >> (i * 4)) & 0xF) as u8;
+                let ch = if nibble < 10 { b'0' + nibble } else { b'a' + nibble - 10 };
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) ch as usize, out("a7") _, out("a0") _);
+            }
+            let msg_newline = b"\n";
+            for &byte in msg_newline {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            let msg = b"[RMM] set_table: writing SATP\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            // RISC-V privileged spec: When changing SATP, must ensure:
+            // 1. All memory accesses complete before SATP write
+            // 2. SFENCE.VMA after SATP write to flush TLB
+            // 3. Instructions are fetched with new page table
+
+            // Log before fence.i
+            // Log current SATP before changing
+            let current_satp: usize;
+            asm!("csrr {}, satp", out(reg) current_satp, options(nostack));
+
+            let msg = b"[RMM] Current SATP=0x";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+            for i in (0..16).rev() {
+                let nibble = ((current_satp >> (i * 4)) & 0xF) as u8;
+                let ch = if nibble < 10 { b'0' + nibble } else { b'a' + nibble - 10 };
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) ch as usize, out("a7") _, out("a0") _);
+            }
+            let msg = b"\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            let msg = b"[RMM] before fence (memory fence, not instruction fence)\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            asm!("fence", options(nostack));
+
+            // Log after fence, before csrw
+            let msg = b"[RMM] after fence, before csrw satp\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            // DEBUG: Check if page table is accessible and valid
+            let pgtbl_phys = address.data();
+            let pgtbl_virt = Self::PHYS_OFFSET + pgtbl_phys;
+            let pgtbl_ptr = pgtbl_virt as *const usize;
+
+            let msg = b"[RMM] Page table phys=0x";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+            for i in (0..16).rev() {
+                let nibble = ((pgtbl_phys >> (i * 4)) & 0xF) as u8;
+                let ch = if nibble < 10 { b'0' + nibble } else { b'a' + nibble - 10 };
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) ch as usize, out("a7") _, out("a0") _);
+            }
+            let msg = b" virt=0x";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+            for i in (0..16).rev() {
+                let nibble = ((pgtbl_virt >> (i * 4)) & 0xF) as u8;
+                let ch = if nibble < 10 { b'0' + nibble } else { b'a' + nibble - 10 };
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) ch as usize, out("a7") _, out("a0") _);
+            }
+            let msg = b"\n[RMM] Page table entry[0]=0x";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            let entry0 = unsafe { core::ptr::read_volatile(pgtbl_ptr) };
+            for i in (0..16).rev() {
+                let nibble = ((entry0 >> (i * 4)) & 0xF) as u8;
+                let ch = if nibble < 10 { b'0' + nibble } else { b'a' + nibble - 10 };
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) ch as usize, out("a7") _, out("a0") _);
+            }
+
+            let msg = b" entry[256]=0x";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            let entry256 = unsafe { core::ptr::read_volatile(pgtbl_ptr.add(256)) };
+            for i in (0..16).rev() {
+                let nibble = ((entry256 >> (i * 4)) & 0xF) as u8;
+                let ch = if nibble < 10 { b'0' + nibble } else { b'a' + nibble - 10 };
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) ch as usize, out("a7") _, out("a0") _);
+            }
+
+            let msg = b"\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            asm!("csrw satp, {satp}", satp = in(reg) satp, options(nostack));
+
+            // Log after csrw, before sfence.vma
+            let msg = b"[RMM] after csrw satp, before sfence.vma\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
+            let msg = b"[RMM] set_table: SATP written, about to sfence.vma\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
+
             Self::invalidate_all();
+
+            let msg = b"[RMM] set_table: sfence.vma done\n";
+            for &byte in msg {
+                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
+            }
         }
     }
 
