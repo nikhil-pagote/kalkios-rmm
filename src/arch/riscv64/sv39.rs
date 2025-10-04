@@ -60,45 +60,16 @@ impl Arch for RiscV64Sv39Arch {
     #[inline(always)]
     unsafe fn set_table(_table_kind: TableKind, address: PhysicalAddress) {
         unsafe {
-            // Debug instrumentation - print using SBI console
-            let msg = b"[RMM] set_table: calculating SATP\n";
-            for &byte in msg {
-                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
-            }
+            // Calculate SATP value: MODE (Sv39 = 8) in bits 63:60, PPN in bits 43:0
+            let satp = (8 << 60) | (address.data() >> Self::PAGE_SHIFT);
 
-            let satp = (8 << 60) | // Sv39 MODE
-            (address.data() >> Self::PAGE_SHIFT); // Convert to PPN (TODO: ensure alignment)
-
-            let msg = b"[RMM] set_table: writing SATP\n";
-            for &byte in msg {
-                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
-            }
-
-            // Log before csrw
-            let msg = b"[RMM/Sv39] before csrw satp\n";
-            for &byte in msg {
-                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
-            }
-
-            asm!("csrw satp, {0}", in(reg) satp);
-
-            // Log after csrw
-            let msg = b"[RMM/Sv39] after csrw satp\n";
-            for &byte in msg {
-                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
-            }
-
-            let msg = b"[RMM] set_table: SATP written, about to sfence.vma\n";
-            for &byte in msg {
-                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
-            }
-
+            // RISC-V privileged spec: When changing SATP, must ensure:
+            // 1. All memory accesses complete before SATP write
+            // 2. SFENCE.VMA after SATP write to flush TLB
+            // 3. Instructions are fetched with new page table
+            asm!("fence", options(nostack));
+            asm!("csrw satp, {0}", in(reg) satp, options(nostack));
             Self::invalidate_all();
-
-            let msg = b"[RMM] set_table: sfence.vma done\n";
-            for &byte in msg {
-                asm!("li a7, 1", "mv a0, {}", "ecall", in(reg) byte as usize, out("a7") _, out("a0") _);
-            }
         }
     }
 
