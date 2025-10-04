@@ -45,25 +45,23 @@ impl<A: Arch> BumpAllocator<A> {
 
 impl<A: Arch> FrameAllocator for BumpAllocator<A> {
     unsafe fn allocate(&mut self, count: FrameCount) -> Option<PhysicalAddress> {
-        unsafe {
-            let req_size = count.data() * A::PAGE_SIZE;
+        let req_size = count.data() * A::PAGE_SIZE;
 
-            let block = loop {
-                let area = self.cur_areas.0.first()?;
-                let off = self.cur_areas.1;
-                if area.size - off < req_size {
-                    self.cur_areas = (&self.cur_areas.0[1..], 0);
-                    continue;
-                }
-                self.cur_areas.1 += req_size;
+        let block = loop {
+            let area = self.cur_areas.0.first()?;
+            let off = self.cur_areas.1;
+            if area.size - off < req_size {
+                self.cur_areas = (&self.cur_areas.0[1..], 0);
+                continue;
+            }
+            self.cur_areas.1 += req_size;
 
-                break area.base.add(off);
-            };
-            // Avoid zeroing during very early bring-up on bare riscv64 to prevent faults
-            #[cfg(not(target_arch = "riscv64"))]
-            A::write_bytes(A::phys_to_virt(block), 0, req_size);
-            Some(block)
-        }
+            break area.base.add(off);
+        };
+        // Avoid zeroing during very early bring-up on bare riscv64 to prevent faults
+        #[cfg(not(target_arch = "riscv64"))]
+        A::write_bytes(A::phys_to_virt(block), 0, req_size);
+        Some(block)
     }
 
     unsafe fn free(&mut self, _address: PhysicalAddress, _count: FrameCount) {
